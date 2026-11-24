@@ -33,6 +33,9 @@ of the folder you are in.
 
 - **See photos, videos and music on a machine with no screen.** Click an image,
   a video, an audio file or a PDF and it opens in a new browser tab.
+
+  ![Click an image in the panel and it opens in a new browser tab; click a video and it plays there, with sound](docs/open-media.gif)
+
 - **Use it from your phone.** Sit on the sofa and work on the server. The phone
   gets an extra row of the keys its keyboard lacks (Esc, Tab, Ctrl, Alt, arrows),
   and long-press replaces right-click. There is no mouse and no drag and drop on
