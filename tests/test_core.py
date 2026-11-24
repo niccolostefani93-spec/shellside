@@ -546,3 +546,20 @@ def test_editors_write_to_data_home_not_the_code_directory():
     assert json.loads((home / "settings.json").read_text())["font_size"] == 15
 
     assert snapshot() == before
+
+
+def test_file_icons_are_validated():
+    import pytest
+    from server.config import DEFAULT_FILE_ICONS, SettingsError, normalize_file_icons
+
+    clean = normalize_file_icons(DEFAULT_FILE_ICONS)
+    assert clean["folder"] == DEFAULT_FILE_ICONS["folder"]
+    assert len(clean["groups"]) == len(DEFAULT_FILE_ICONS["groups"])
+
+    out = normalize_file_icons({"folder": "", "groups": [
+        {"name": "Mine", "icon": "X" * 20, "extensions": ["JPG", "png", ""]}]})
+    assert out["folder"] == DEFAULT_FILE_ICONS["folder"]          # empty -> default
+    assert out["groups"][0]["extensions"] == [".jpg", ".png"]
+    assert len(out["groups"][0]["icon"]) <= 8
+    with pytest.raises(SettingsError):
+        normalize_file_icons({"groups": [{"name": "", "icon": "x", "extensions": [".a"]}]})

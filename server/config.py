@@ -143,12 +143,91 @@ DEFAULT_HANDLERS: list[dict[str, Any]] = [
              [".html", ".htm", ".xhtml"], click=False),
 ]
 
+# ------------------------------------------------------------------ file icons
+#
+# The emoji in front of each name in the folder panel. Separate from handlers
+# on purpose: a handler's icon marks an action in a menu (▸ run, ◉ open), and
+# a file can have several handlers but only one look. First match wins:
+# folder, then the first group listing the extension, then executable, then
+# the default.
+
+def _icon_group(gid: str, name: str, icon: str, extensions: list[str]) -> dict[str, Any]:
+    return {"id": gid, "name": name, "icon": icon, "extensions": sorted(set(extensions))}
+
+
+DEFAULT_FILE_ICONS: dict[str, Any] = {
+    "folder": "\U0001F4C1",          # 📁
+    "default": "\U0001F4C4",         # 📄
+    "executable": "\u2699\ufe0f",    # ⚙️
+    "groups": [
+        _icon_group("images", "Images", "\U0001F5BC\ufe0f",
+                    [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".ico",
+                     ".avif", ".heic", ".tif", ".tiff", ".psd", ".xcf", ".raw"]),
+        _icon_group("audio", "Audio", "\U0001F3B5",
+                    [".mp3", ".wav", ".ogg", ".aac", ".m4a", ".flac", ".opus", ".wma"]),
+        _icon_group("video", "Video", "\U0001F3AC",
+                    [".mp4", ".webm", ".ogv", ".m4v", ".mkv", ".avi", ".mov", ".wmv",
+                     ".flv", ".mpg", ".mpeg"]),
+        _icon_group("archives", "Archives", "\U0001F4E6",
+                    [".zip", ".tar", ".gz", ".tgz", ".xz", ".bz2", ".7z", ".rar", ".zst",
+                     ".deb", ".rpm", ".iso", ".img"]),
+        _icon_group("pdf", "PDF", "\U0001F4D5", [".pdf"]),
+        _icon_group("python", "Python", "\U0001F40D", [".py", ".pyw", ".ipynb"]),
+        _icon_group("scripts", "Scripts", "\U0001F4DC",
+                    [".sh", ".bash", ".zsh", ".fish", ".ps1", ".bat"]),
+        _icon_group("code", "Code", "\U0001F9E9",
+                    [".js", ".ts", ".jsx", ".tsx", ".css", ".html", ".htm", ".rs", ".go",
+                     ".c", ".h", ".cpp", ".hpp", ".java", ".rb", ".php", ".lua", ".sql"]),
+        _icon_group("config", "Config and data", "\U0001F527",
+                    [".json", ".yaml", ".yml", ".toml", ".ini", ".conf", ".cfg", ".env",
+                     ".xml", ".csv", ".service"]),
+        _icon_group("text", "Text", "\U0001F4DD", [".txt", ".md", ".log", ".rst"]),
+        _icon_group("documents", "Documents", "\U0001F4C3",
+                    [".doc", ".docx", ".odt", ".rtf", ".xls", ".xlsx", ".ods", ".ppt",
+                     ".pptx", ".odp", ".epub"]),
+    ],
+}
+
+MAX_ICON_LENGTH = 8      # one emoji can be several code points (ZWJ, variants)
+
+
+def normalize_file_icons(raw: Any) -> dict[str, Any]:
+    """Validate a file_icons value from the settings panel."""
+    if not isinstance(raw, dict):
+        raise SettingsError("file_icons has to be an object.")
+
+    def icon(value: Any, fallback: str) -> str:
+        text = str(value or "").strip()[:MAX_ICON_LENGTH]
+        return text or fallback
+
+    out = {key: icon(raw.get(key), DEFAULT_FILE_ICONS[key])
+           for key in ("folder", "default", "executable")}
+    groups = []
+    for index, item in enumerate(raw.get("groups") or []):
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name", "")).strip()[:40]
+        if not name:
+            raise SettingsError(f"Icon group {index + 1} has no name.")
+        extensions = sorted({_norm_ext(str(e)) for e in item.get("extensions") or []
+                             if str(e).strip().strip(".")})
+        groups.append({
+            "id": str(item.get("id") or f"g{index}")[:40],
+            "name": name,
+            "icon": icon(item.get("icon"), DEFAULT_FILE_ICONS["default"]),
+            "extensions": extensions,
+        })
+    out["groups"] = groups
+    return out
+
+
 DEFAULT_SETTINGS: dict[str, Any] = {
     "shell": os.environ.get("SHELL") or "/bin/bash",
     "start_dir": str(Path.home()),
     "show_dotfiles": False,
     "show_executables": True,
     "handlers": DEFAULT_HANDLERS,
+    "file_icons": DEFAULT_FILE_ICONS,
     # Command assistant: a command that bash cannot find is sent to the model
     # (Settings › Model), and its suggestions are printed in the terminal.
     "assist_on_not_found": True,
@@ -313,6 +392,8 @@ def save_settings(patch: dict[str, Any]) -> dict[str, Any]:
         load_settings()      # merge into what is on disk, never into bare defaults
     if "handlers" in patch:
         patch = dict(patch, handlers=normalize_handlers(patch["handlers"]))
+    if "file_icons" in patch:
+        patch = dict(patch, file_icons=normalize_file_icons(patch["file_icons"]))
     with _lock:
         current = dict(_cache or DEFAULT_SETTINGS)
         current.update(patch)

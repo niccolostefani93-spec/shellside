@@ -63,14 +63,43 @@
     return;
   }
 
+  // Any file can land here: a click on a file no handler claims opens it in
+  // this editor. Two guards so that is safe. Over 5MB (the save limit) it is
+  // not loaded at all. Not valid UTF-8, or containing NUL bytes, it is shown
+  // read-only: saving the decoded text back would corrupt a binary file.
+  const MAX_BYTES = 5_000_000;
+  let readOnly = false;
+
   fetch(fileUrl)
-    .then((r) => { if (!r.ok) throw new Error("Could not load the file."); return r.text(); })
-    .then((text) => {
+    .then(async (r) => {
+      if (!r.ok) throw new Error("Could not load the file.");
+      const length = Number(r.headers.get("content-length") || 0);
+      if (length > MAX_BYTES) {
+        r.body && r.body.cancel();
+        throw new Error(`Too big to open here (${(length / 1e6).toFixed(1)} MB). Download it instead.`);
+      }
+      return new Uint8Array(await r.arrayBuffer());
+    })
+    .then((bytes) => {
+      let text;
+      try {
+        text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+        if (text.includes("\u0000")) throw new Error("NUL");
+      } catch {
+        readOnly = true;
+        text = new TextDecoder("utf-8").decode(bytes).replace(/\u0000/g, "\u2400");
+      }
       original = text;
       editor.value = text;
       editor.disabled = false;
-      editor.focus();
-      setMsg("");
+      if (readOnly) {
+        editor.readOnly = true;
+        saveBtn.hidden = true;
+        setMsg("binary file: read-only", "error");
+      } else {
+        editor.focus();
+        setMsg("");
+      }
     })
     .catch((err) => setMsg(err.message, "error"));
 
@@ -82,7 +111,7 @@
   });
 
   async function save() {
-    if (saveBtn.disabled) return;
+    if (saveBtn.disabled || readOnly) return;
     saveBtn.disabled = true;
     setMsg("saving\u2026");
     try {

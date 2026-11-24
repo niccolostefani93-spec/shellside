@@ -1301,12 +1301,18 @@ async function runHandler(handler, entry) {
   }
 }
 
+function openInEditor(path) {
+  window.open(`/static/edit.html?path=${encodeURIComponent(path)}`, "_blank", "noopener");
+}
+
 async function openEntry(entry) {
   if (!entry) return;
   if (entry.dir) { goTo(entry.path); return; }
   const handler = defaultHandler(entry);
   if (!handler) {
-    toast(`Nothing opens ${entry.ext || "this file type"} on click. Add it to a handler in Settings \u203a File types.`, "info");
+    // No handler takes the left click for this extension: the text editor.
+    // It opens binary and very large files read-only or not at all (edit.html).
+    openInEditor(entry.path);
     return;
   }
   await runHandler(handler, entry);
@@ -1570,6 +1576,10 @@ const appContext = {
     try { localStorage.removeItem(FONT_KEY); } catch { /* private mode */ }
     tabs.forEach((tab) => tab.terminal.setFontSize(size));
   },
+  // Re-draw the folder panel from the listing it already has (new icons).
+  refreshPanel: () => {
+    if (state.view === "folders" && state.listing) navigator.render(state.listing);
+  },
   reload: async () => {
     const fresh = await api.reload();
     state.scripts = fresh.scripts;
@@ -1607,6 +1617,7 @@ async function main() {
     favorites: boot.favorites,
     services: boot.services,
     defaultHandlers: boot.default_handlers || [],
+    defaultFileIcons: boot.default_file_icons || null,
   });
 
   navigator = new Navigator({
@@ -1615,6 +1626,7 @@ async function main() {
     emptyMessage: "This folder is empty.",
     onNavigate: goTo,
     onOpenFile: openEntry,
+    icons: () => state.settings.file_icons,
     downloadUrl: (entry) => new URL(api.downloadUrl(entry.path), window.location.href).href,
   });
 

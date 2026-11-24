@@ -862,12 +862,157 @@ function tabFileTypes(ctx, patch) {
     el("div", { class: "rows" }, rows.length ? rows
       : [el("div", { class: "empty" }, [el("b", { text: "No handlers: no file opens on click." })])]),
     el("div", { class: "field-note", text:
-      "Left click: the first handler from the top that lists the extension and is set to Left click. "
+      "Left click: the first handler from the top that lists the extension and is set to Left click; "
+      + "a file no handler takes opens in the text editor (read-only if it is binary). "
       + "Right click: every handler that lists it, the left-click one first in bold. "
       + "A file shows in the folder panel when any handler lists its extension; folders and executables always show." }),
     fieldToggle("Show dotfiles", settings.show_dotfiles, null,
       (value) => patch({ show_dotfiles: value })),
+    iconsSection(ctx),
   ]);
+}
+
+// ------------------------------------------------------------ file icons
+
+/** Settings › File types › Icons: the emoji in front of each name. */
+function iconsSection(ctx) {
+  const icons = ctx.state.settings.file_icons || ctx.state.defaultFileIcons
+    || { folder: "", default: "", executable: "", groups: [] };
+  const groups = (icons.groups || []).map((g) => ({ ...g, extensions: [...g.extensions] }));
+
+  const save = async (next) => {
+    try {
+      ctx.state.settings = await api.saveSettings({ file_icons: next });
+      if (ctx.refreshPanel) ctx.refreshPanel();
+      toast("Saved.", "success", 1600);
+    } catch (error) { toast(error.message, "error"); }
+    openSettings(ctx, "file_types");
+  };
+  const saveGroups = (next) => save({ ...icons, groups: next });
+
+  const special = (key, label, note) => {
+    const input = el("input", { class: "input icon-input", value: icons[key] || "",
+                                maxlength: "8", "aria-label": `${label} icon` });
+    input.addEventListener("change", () => save({ ...icons, [key]: input.value.trim() }));
+    return el("div", { class: "row" }, [
+      input,
+      el("div", { class: "row-main" }, [
+        el("div", { class: "row-name", text: label }),
+        el("div", { class: "row-desc", text: note }),
+      ]),
+    ]);
+  };
+
+  const move = (index, delta) => {
+    const next = groups.slice();
+    const [item] = next.splice(index, 1);
+    next.splice(index + delta, 0, item);
+    saveGroups(next);
+  };
+
+  const rows = groups.map((group, index) => {
+    const tools = el("div", { class: "row-tools" });
+    if (index > 0) tools.append(tagButton("\u2191", { title: "Move up \u2014 higher wins when two groups list the same extension.", onClick: () => move(index, -1) }));
+    if (index < groups.length - 1) tools.append(tagButton("\u2193", { title: "Move down.", onClick: () => move(index, 1) }));
+    tools.append(tagButton("Edit", { onClick: () => iconGroupForm(ctx, icons, groups, index, save) }));
+    tools.append(tagButton("Delete", {
+      style: "danger",
+      onClick: async () => {
+        const ok = await confirm({
+          title: "Delete icon group",
+          message: `Delete \u201c${group.name}\u201d? Its files get the default icon.`,
+          confirmLabel: "Delete",
+        });
+        if (ok) saveGroups(groups.filter((_, i) => i !== index));
+      },
+    }));
+    return el("div", { class: "row", style: "align-items:flex-start;" }, [
+      el("span", { class: "icon-preview", text: group.icon }),
+      el("div", { class: "row-main" }, [
+        el("div", { class: "row-name", text: group.name }),
+        el("div", { class: "row-desc", text: group.extensions.join(" ") }),
+      ]),
+      tools,
+    ]);
+  });
+
+  return el("div", { class: "icons-section" }, [
+    el("span", { class: "field-label", style: "margin-top:22px;", text: "Icons" }),
+    el("div", { class: "field-note", style: "margin:0 0 10px;", text:
+      "The emoji in front of each name in the folder panel. A file takes the icon of the first group that lists its extension; otherwise the executable or default one." }),
+    el("div", { class: "rows" }, [
+      special("folder", "Folders", "Every folder."),
+      special("executable", "Executables", "Files with the execute bit and no group of their own."),
+      special("default", "Everything else", "Files no group lists."),
+      ...rows,
+    ]),
+    el("div", { class: "sheet-foot", style: "padding:12px 0 0;border-top:none;justify-content:flex-start;" }, [
+      el("button", { class: "btn btn--primary", text: "Add an icon group",
+                     onClick: () => iconGroupForm(ctx, icons, groups, null, save) }),
+      el("button", {
+        class: "btn",
+        text: "Restore default icons",
+        onClick: async () => {
+          const ok = await confirm({
+            title: "Restore default icons",
+            message: "Replace every icon and group with the ones the project ships with?",
+            confirmLabel: "Restore",
+            danger: true,
+          });
+          if (ok && ctx.state.defaultFileIcons) save(ctx.state.defaultFileIcons);
+        },
+      }),
+    ]),
+  ]);
+}
+
+function iconGroupForm(ctx, icons, groups, index, save) {
+  const editing = index !== null;
+  const current = editing ? groups[index] : { name: "", icon: "", extensions: [] };
+  const name = el("input", { class: "input", value: current.name });
+  const icon = el("input", { class: "input icon-input", value: current.icon, maxlength: "8" });
+  const extensions = el("textarea", { class: "textarea", spellcheck: "false", style: "min-height:60px;" });
+  extensions.value = current.extensions.join(" ");
+  const back = () => openSettings(ctx, "file_types");
+
+  const submit = () => {
+    const values = {
+      id: current.id || `g_${Date.now().toString(36)}`,
+      name: name.value.trim(),
+      icon: icon.value.trim(),
+      extensions: parseExtensions(extensions.value),
+    };
+    if (!values.name) { toast("Give the group a name.", "warning"); return; }
+    if (!values.icon) { toast("Pick an emoji for the group.", "warning"); return; }
+    if (!values.extensions.length) { toast("List at least one extension.", "warning"); return; }
+    const next = editing ? groups.map((g, i) => (i === index ? values : g)) : [values, ...groups];
+    save({ ...icons, groups: next });
+  };
+
+  sheet({
+    title: editing ? `Edit \u201c${current.name}\u201d` : "New icon group",
+    body: sheetBody([
+      el("div", { style: "display:flex;gap:10px;align-items:flex-end;" }, [
+        el("label", { class: "field", style: "flex:0 0 auto;" }, [
+          el("span", { class: "field-label", text: "Emoji" }),
+          icon,
+        ]),
+        el("label", { class: "field", style: "flex:1 1 auto;" }, [
+          el("span", { class: "field-label", text: "Name" }),
+          name,
+        ]),
+      ]),
+      el("label", { class: "field" }, [
+        el("span", { class: "field-label", text: "Extensions" }),
+        extensions,
+        el("div", { class: "field-note", text: "Space separated, e.g. .jpg .png .webp. On a phone, the emoji keyboard fills the Emoji field; on a computer, paste one (Win + . or Ctrl + Cmd + Space opens a picker)." }),
+      ]),
+    ]),
+    footer: sheetFoot([
+      el("button", { class: "btn", text: "Cancel", onClick: back }),
+      el("button", { class: "btn btn--primary", text: editing ? "Save" : "Add", onClick: submit }),
+    ]),
+  });
 }
 
 /** Create (index === null) or edit one handler, then save the whole list. */

@@ -293,7 +293,14 @@ button { cursor: pointer; }
   transition: background var(--speed), color var(--speed);
 }
 .entry:hover { background: var(--raised); color: var(--ink); }
-.entry .mark { color: var(--ink-faint); flex: 0 0 auto; width: 10px; }
+/* An emoji (Settings › File types › Icons) in a fixed-width slot, so names
+   stay aligned whatever width each emoji renders at. The emoji font comes
+   first in the stack: the monospace face has no colour glyphs. */
+.entry .mark {
+  flex: 0 0 auto; width: 18px; text-align: center;
+  font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+  font-size: 13px; line-height: 1;
+}
 .entry .label {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -309,11 +316,9 @@ button { cursor: pointer; }
 }
 .entry:hover .meta { opacity: 1; }
 
-.entry.is-dir .mark, .entry.is-dir:hover .label { color: var(--cyan); }
+.entry.is-dir:hover .label { color: var(--cyan); }
 .entry.is-dir .label { color: #9fc3d2; }
-.entry.is-native .mark { color: var(--ink-faint); }
-.entry.is-native:hover .mark { color: var(--info); }
-.entry.is-exec .mark { color: var(--ok); }
+.entry.is-exec .label { color: #a9c9a0; }
 .entry.is-hidden-type { opacity: 0.55; }
 
 .empty {
@@ -872,4 +877,16 @@ body.is-touch .term-host { touch-action: none; }
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Settings › File types › Icons */
+.icon-input {
+  width: 52px; max-width: 52px; flex: 0 0 auto; text-align: center; font-size: 18px;
+  font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+  padding: 4px;
+}
+.icons-section .row { gap: 12px; align-items: center; }
+.icon-preview {
+  flex: 0 0 auto; width: 52px; text-align: center; font-size: 18px;
+  font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
 }

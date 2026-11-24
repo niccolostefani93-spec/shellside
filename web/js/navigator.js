@@ -20,11 +20,27 @@ export function formatSize(bytes) {
   return `${value < 10 && unit > 0 ? value.toFixed(1) : Math.round(value)}${UNITS[unit]}`;
 }
 
-function markFor(entry) {
-  if (entry.dir) return "\u25b8";       // ▸ folder
-  if (entry.executable) return "\u2022"; // • runnable
-  if (entry.native) return "\u25e6";     // ◦ browser can render it
-  return "\u00b7";                       // · everything else
+// Used when the owner passes no icon table (and as its fallback values).
+const FALLBACK_ICONS = { folder: "\u{1F4C1}", default: "\u{1F4C4}", executable: "\u2699\uFE0F", groups: [] };
+
+// extension -> emoji, rebuilt only when the settings object changes.
+let iconCache = { source: null, byExt: new Map() };
+
+/** The emoji in front of an entry's name (Settings › File types › Icons). */
+export function iconFor(entry, icons) {
+  const table = icons || FALLBACK_ICONS;
+  if (entry.dir) return table.folder || FALLBACK_ICONS.folder;
+  if (iconCache.source !== table) {
+    const byExt = new Map();
+    for (const group of table.groups || []) {
+      for (const ext of group.extensions || []) if (!byExt.has(ext)) byExt.set(ext, group.icon);
+    }
+    iconCache = { source: table, byExt };
+  }
+  const fromGroup = entry.ext ? iconCache.byExt.get(entry.ext) : null;
+  if (fromGroup) return fromGroup;
+  if (entry.executable) return table.executable || FALLBACK_ICONS.executable;
+  return table.default || FALLBACK_ICONS.default;
 }
 
 export class Navigator {
@@ -36,6 +52,7 @@ export class Navigator {
    * @param {(entry:object)=>void} [options.onOpenFile]   file clicked
    * @param {(event, entry|null)=>void} [options.onContext] right-click
    * @param {string} [options.emptyMessage]
+   * @param {()=>object} [options.icons]   the file_icons settings
    */
   constructor(options) {
     this.crumbs = options.crumbs;
@@ -46,6 +63,9 @@ export class Navigator {
     // (entry) => absolute download URL; makes entries draggable out of the page.
     this.downloadUrl = options.downloadUrl || null;
     this.emptyMessage = options.emptyMessage || "Nothing here.";
+    // () => the file_icons settings object; read at render time so a change
+    // in Settings shows on the next render without rebuilding the widget.
+    this.icons = options.icons || (() => null);
     this.listing = null;
     this.showAll = false;
 
@@ -118,6 +138,7 @@ export class Navigator {
       return;
     }
 
+    const icons = this.icons();
     this.grid.replaceChildren(...listing.entries.map((entry) => {
       const classes = ["entry"];
       if (entry.dir) classes.push("is-dir");
@@ -135,7 +156,7 @@ export class Navigator {
           else if (this.onOpenFile) this.onOpenFile(entry);
         },
       }, [
-        el("span", { class: "mark", text: markFor(entry) }),
+        el("span", { class: "mark", text: iconFor(entry, icons), "aria-hidden": "true" }),
         el("span", { class: "label", text: entry.name }),
         el("span", { class: "meta", text: entry.dir ? "" : formatSize(entry.size) }),
       ]);

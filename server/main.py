@@ -21,7 +21,7 @@ from starlette.background import BackgroundTask
 from . import (assist, auth, auth_routes, command_editor, components, fsview,
                menu_editor, script_editor, services, update_plan)
 from .gate import GateMiddleware
-from .config import (BROWSER_NATIVE, DEFAULT_HANDLERS, DATA_DIR, DATA_HOME, FAVORITES_FILE,
+from .config import (BROWSER_NATIVE, DEFAULT_FILE_ICONS, DEFAULT_HANDLERS, DATA_DIR, DATA_HOME, FAVORITES_FILE,
                      ROOT, VERSION, SANDBOX_INLINE, WEB_DIR, SettingsError, load_settings,
                      save_settings)
 from .pty_session import registry, tmux_available, tmux_sessions
@@ -298,6 +298,7 @@ async def bootstrap(request: Request) -> JSONResponse:
         "version": VERSION,
         "settings": settings,
         "default_handlers": DEFAULT_HANDLERS,
+        "default_file_icons": DEFAULT_FILE_ICONS,
         "scripts": tree["scripts"],
         "commands": tree["commands"],
         "context_menus": tree["context_menus"],
