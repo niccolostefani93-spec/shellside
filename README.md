@@ -314,7 +314,7 @@ How it works:
   they are in the scrollback after a reconnect.
 
 Limit: bash parses the line before the assistant sees it, so a request with an
-unbalanced quote (`l'ultima cartella`) leaves bash waiting for the closing
+unbalanced quote (`what's in here`) leaves bash waiting for the closing
 quote. Press Ctrl-C, and wrap such a request in double quotes.
 
 ---
