@@ -89,6 +89,9 @@ minutes) and you are asked to choose your real password; the setup password then
 stops working. Nothing is ever exposed to the network without a password: if
 none is set, Shellside listens on `127.0.0.1` whatever the settings say.
 
+Open the address it prints: a short guided tour shows the interface the first
+time (**Guide** in the top bar brings it back).
+
 Afterwards:
 
 ```bash

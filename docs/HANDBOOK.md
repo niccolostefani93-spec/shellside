@@ -13,6 +13,7 @@ work by typing into that same shell.
 
 ## Contents
 
+- [The guided tour](#the-guided-tour)
 - [How it fits together](#how-it-fits-together)
 - [Design notes](#design-notes)
 - [Shells that outlive the browser, and Shellside](#shells-that-outlive-the-browser-and-shellside)
@@ -29,6 +30,16 @@ work by typing into that same shell.
 - [Where your data lives](#where-your-data-lives)
 - [Layout](#layout)
 - [Known gaps](#known-gaps)
+
+---
+
+## The guided tour
+
+The first time a device opens Shellside, a short tour walks through the
+interface one element at a time: terminal, tabs, path, files, menus, drag and
+drop, saved commands, the assistant, settings. A phone gets its own steps (the
+☰ drawer, the key bar). It is remembered per browser, and **Guide** in the
+top bar shows it again.
 
 ---
 
@@ -549,7 +560,9 @@ name, a group of extensions, and one of three kinds:
 That one list decides three things:
 
 - **Left click** — the first handler, top to bottom, that lists the extension
-  and is set to *Left click*. Move a handler up to make it win.
+  and is set to *Left click*. Move a handler up to make it win. A file no
+  handler takes opens in the text editor, read-only if it is not text (so
+  saving cannot corrupt it) and not at all over 5 MB.
 - **Right click** — every handler that lists the extension, the left-click one
   first and in bold, then the generic actions (download, rename, move…). So the
   left click is always also a menu entry; a folder's menu starts with *Open*.
@@ -560,6 +573,16 @@ Stored as `handlers` in `settings.json` in the data folder. A settings file from
 handlers existed is converted the first time it is read: customised click
 actions become their own handlers at the top, and any extension that was only
 *visible* is added to *Open with system default*.
+
+### Icons
+
+The same tab has an **Icons** list: the emoji shown in front of each name in
+the folder panel. A folder gets the folder icon; a file gets the icon of the
+first group that lists its extension, otherwise the executable icon if it has
+the execute bit, otherwise the default one. Groups can be added, edited,
+reordered and restored to the shipped set. Stored as `file_icons` in
+`settings.json`. Emoji need a colour emoji font on the machine whose browser
+shows them (Noto Color Emoji on most Linux desktops; phones have one).
 
 ### Files the browser can render
 
@@ -734,7 +757,7 @@ left where they were.
       data/            reference files for LLM context
 
     services/llm/    one folder per model connector
-    web/             frontend; vendor/ holds xterm
+    web/             frontend; vendor/ holds xterm, js/tour.js the guided tour
     tests/           pytest
 
 ---

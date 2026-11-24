@@ -3,6 +3,7 @@
 import { api } from "./api.js";
 import { Navigator } from "./navigator.js";
 import { TerminalSurface } from "./terminal.js";
+import { startTour, tourSeen } from "./tour.js";
 import { askModel, commandForm, openSettings, pickFolder, promptText,
          savedCommands, scriptCodeUpload, scriptForm, tagButton } from "./modals.js";
 import { clipboardImageAvailability, confirm, contextMenu, copyToClipboard, dismissSheet, el,
@@ -618,6 +619,14 @@ function changeFontSize(delta) {
   toast(`Text size ${size}`, "info", 900);
 }
 
+function openTour() {
+  startTour({
+    touch: isTouch,
+    compact: document.body.classList.contains("compact"),
+    openChrome: (open) => toggleChrome(open),
+  });
+}
+
 function toggleChrome(open = !document.body.classList.contains("chrome-open")) {
   document.body.classList.toggle("chrome-open", open);
 }
@@ -1059,6 +1068,7 @@ function renderTopbar() {
         const chip = el("button", {
           class: "chip",
           "data-style": script.style && script.style !== "default" ? script.style : null,
+          "data-script-id": script.id,
           title: script.description,
           onClick: () => runComponent("scripts", script, {}),
         }, [
@@ -1099,6 +1109,11 @@ function renderTopbar() {
         }));
         return chip;
       }),
+    el("button", { class: "chip", id: "guide-chip", title: "A short tour of what Shellside can do",
+                   onClick: () => openTour() }, [
+      el("span", { class: "icon", text: "?" }),
+      el("span", { text: "Guide" }),
+    ]),
     el("button", { class: "chip", title: "Add a script (a routes.py, or a zip of one)",
                    onClick: () => scriptForm(appContext, null) }, [
       el("span", { class: "icon", text: "+" }),
@@ -1650,6 +1665,9 @@ async function main() {
   try { lastActive = sessionStorage.getItem(ACTIVE_KEY); } catch { /* private mode */ }
   const first = tabs.find((tab) => tab.sessionId && tab.sessionId === lastActive) || tabs[0];
   if (first) activateTab(first.id);
+
+  // First visit from this device: the tour, once the layout has settled.
+  if (!tourSeen()) setTimeout(openTour, 700);
 }
 
 main();

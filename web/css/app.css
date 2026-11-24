@@ -890,3 +890,27 @@ body.is-touch .term-host { touch-action: none; }
   flex: 0 0 auto; width: 52px; text-align: center; font-size: 18px;
   font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
 }
+
+/* Guided tour (web/js/tour.js). Above sheets and menus; the spotlight's
+   shadow dims everything but the element it frames. */
+.tour { position: fixed; inset: 0; z-index: 300; }
+.tour.is-plain { background: rgba(6, 9, 13, 0.72); }
+.tour-spot {
+  position: fixed; border-radius: 4px; pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(6, 9, 13, 0.72);
+  outline: 1px solid var(--amber);
+  transition: top 180ms ease, left 180ms ease, width 180ms ease, height 180ms ease;
+}
+.tour-card {
+  position: fixed; width: min(360px, calc(100vw - 24px));
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 3px;
+  padding: 14px 16px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.tour-head { display: flex; align-items: center; justify-content: space-between; }
+.tour-count { color: var(--amber); font-size: 11px; letter-spacing: 0.1em; }
+.tour-skip { color: var(--ink-faint); font-size: 11px; }
+.tour-skip:hover { color: var(--ink); }
+.tour-title { margin: 8px 0 6px; font-size: 14px; color: var(--ink); }
+.tour-text { margin: 0 0 14px; font-size: 12.5px; line-height: 1.55; color: var(--ink-dim); }
+.tour-foot { display: flex; justify-content: flex-end; gap: 8px; }
+@media (prefers-reduced-motion: reduce) { .tour-spot { transition: none; } }
