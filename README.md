@@ -1,23 +1,49 @@
 # Shellside
 
-**A real Linux shell in your browser, with a file manager that follows it.**
+**Use your headless Linux machine from any browser: a real terminal, with a file
+manager that follows it.**
 
-The terminal is a genuine PTY — vim, htop, `tail -f`, background jobs and ssh all
-work. Beside it sits a folder panel that tracks the shell's working directory by
-itself: `cd`, `pushd`, `cd -`, a shell function that changes directory, and the
-panel is already there. Click a file and you get a menu of actions that type real
-commands into that same shell.
-
-**The files on the server are not just visible — they're reachable.** Browse into
-any folder the shell can reach, open what the browser can render, download
-anything to your device, or upload straight into whatever folder the shell is
-currently sitting in. No separate file-transfer step, no `scp` from another
-terminal: it's the same panel that's already open next to the shell.
-
-Built for the machine in the corner that has no monitor, and for administering it
-from a phone.
+Shellside runs on the Linux machine that has no screen — a home server, a
+Raspberry Pi, the PC in the corner — and you open it from a browser on any other
+device: a Windows or Mac laptop, a tablet, your phone. You get a real shell on
+that machine (vim, htop, `tail -f`, ssh all work), and right above it, the files
+of the folder you are in.
 
 ![cd in the terminal and the folder panel follows; right-click a file, Remove, and it is gone; click a folder in the path bar and the shell cds there](docs/demo.gif)
+
+## What you can do with it
+
+- **Move around without typing `cd` and `ls`.** The bar at the top shows where
+  you are and the files around you. Click a folder to go in, click a part of the
+  path to go back. Type `cd` in the terminal and the panel follows by itself.
+  Star the folders you use most and find them under **Favourites**.
+- **Move files with drag and drop.** Drag a file from the panel onto your
+  desktop to download it. Drop files from your computer onto the panel or the
+  terminal to upload them into the folder you are in. No `scp`, no second program.
+- **See photos, videos and music on a machine with no screen.** Click an image,
+  a video, an audio file or a PDF and it opens in a new browser tab.
+- **Use it from your phone.** Sit on the sofa and work on the server. The phone
+  gets an extra row of the keys its keyboard lacks (Esc, Tab, Ctrl, Alt, arrows),
+  and long-press replaces right-click. There is no mouse and no drag and drop on
+  a phone, but everything else is there.
+- **Your terminals live on the server, not in the browser.** Start something on
+  your PC, carry on from your phone, go back to the PC: the same tabs, the same
+  shells, the same output. A dropped connection comes back to the same shell.
+- **Run Claude Code from anywhere.** Start `claude` on the server (there is a
+  button for it in the top bar) and follow it, or answer it, from your phone or
+  any computer. The same goes for any long-running terminal program.
+- **Click a file to act on it.** Right-click a file for edit, rename, move,
+  download, remove and more; text files open in an editor in the browser. You
+  choose what a click does for each file type in **Settings › File types**: for
+  example, a click on a `.py` file types `python3 <that file>` in the terminal.
+- **Keep your frequent commands one click away**, as buttons in the top bar.
+- **Get help when a command goes wrong.** Connect a model in **Settings ›
+  Model** (a local one through Ollama, or any OpenAI-compatible API). When you
+  type a command that doesn't exist, or a question that starts with a comma, its
+  suggestions appear in the terminal.
+- **Safe by default.** Out of the box it answers only on the machine itself.
+  Setup can open it to your local network, and only behind a password. Read the
+  next section before you install it.
 
 ---
 
@@ -141,10 +167,12 @@ that defeat parsing what you typed:
 The panel never runs `ls`, either — the backend uses `os.scandir`, so browsing
 costs one syscall and leaves nothing in your scrollback.
 
-**Navigation runs. Everything else types and waits.** Clicking a breadcrumb runs
-the `cd`, because the panel has to follow the shell. Every other action —
-including `rm -rf` — is written to the prompt and left there for you to read and
-press Enter. It is a switch per action if you disagree.
+**Navigation runs. Almost everything else types and waits.** Clicking a
+breadcrumb runs the `cd`, because the panel has to follow the shell. Most other
+actions are written to the prompt and left there for you to read and press
+Enter. The exception is **Remove**: it asks for confirmation in a dialog, then
+runs. Each action has its own switches (`execute`, `confirm` in its manifest) if
+you disagree.
 
 **Substituted values are shell-quoted.** For a file named `a b; rm -rf ~`:
 
