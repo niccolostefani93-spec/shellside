@@ -57,6 +57,8 @@ def _ask(prompt: str, default: str) -> str:
 def ask_choice(prompt: str, options: list[str], default: int) -> int:
     for number, label in enumerate(options, 1):
         say(f"    {number}) {label}")
+    numbers = " or ".join(str(n) for n in range(1, len(options) + 1))
+    say(f"  Type {numbers} and press Enter (Enter alone keeps {default}).", DIM)
     while True:
         answer = _ask(prompt, str(default))
         if answer.isdigit() and 1 <= int(answer) <= len(options):
@@ -66,6 +68,7 @@ def ask_choice(prompt: str, options: list[str], default: int) -> int:
 
 def ask_yes_no(prompt: str, default: bool) -> bool:
     hint = "Y/n" if default else "y/N"
+    say(f"  Type y or n and press Enter (Enter alone means {'yes' if default else 'no'}).", DIM)
     while True:
         answer = _ask(prompt, hint).lower()
         if answer == hint.lower():
@@ -78,6 +81,7 @@ def ask_yes_no(prompt: str, default: bool) -> bool:
 
 
 def ask_port(default: int) -> int:
+    say(f"  Type a number and press Enter (Enter alone keeps {default}).", DIM)
     while True:
         answer = _ask("Port", str(default))
         if answer.isdigit() and 1024 <= int(answer) <= 65535:
@@ -295,7 +299,7 @@ def setup(argv: list[str]) -> int:
         lan = args.lan
     elif interactive:
         say("  1. Who should be able to open Shellside?", BOLD)
-        lan = ask_choice("Choose", [
+        lan = ask_choice("Your choice", [
             "Only this machine (open it here, or through an SSH tunnel)",
             "Every device on my local network (phone, laptop...), with a password",
         ], 2 if current_lan else 1) == 2
