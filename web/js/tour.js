@@ -1,7 +1,7 @@
 // The guided tour: a few steps over the real interface, one element lit up at
-// a time. Shown once per device on the first visit (phone and computer get
-// different steps, and each has its own first time), and again from the Guide
-// button in the top bar.
+// a time. Shown once per install on the first visit (the flag is tour_seen in
+// settings.json, see app.js), and again from the Guide button in the top bar.
+// Phones and computers get different steps.
 //
 // No library: a spotlight box whose huge shadow dims everything else, and a
 // card placed next to it. While it is open the page underneath does not take
@@ -111,12 +111,9 @@ const STEPS = [
   },
 ];
 
-export function tourSeen() {
-  try { return localStorage.getItem(SEEN_KEY) === "1"; } catch { return true; }
-}
-
-function markSeen() {
-  try { localStorage.setItem(SEEN_KEY, "1"); } catch { /* private mode */ }
+/** Seen in this browser before the flag moved to the server (pre-0.1.1). */
+export function seenInThisBrowser() {
+  try { return localStorage.getItem(SEEN_KEY) === "1"; } catch { return false; }
 }
 
 function visible(node) {
@@ -130,8 +127,9 @@ function visible(node) {
  * @param {boolean} options.touch          a touch device (picks the steps)
  * @param {boolean} options.compact        the drawer layout is active
  * @param {(open:boolean)=>void} options.openChrome   open/close the drawer
+ * @param {()=>void} [options.onClose]    the tour was finished or skipped
  */
-export function startTour({ touch, compact, openChrome }) {
+export function startTour({ touch, compact, openChrome, onClose }) {
   if (document.querySelector(".tour")) return;
   const steps = STEPS.filter((step) => !step.only || step.only === (touch ? "touch" : "desktop"));
   const drawerWasOpen = document.body.classList.contains("chrome-open");
@@ -221,7 +219,7 @@ export function startTour({ touch, compact, openChrome }) {
   }
 
   function close() {
-    markSeen();
+    if (onClose) onClose();
     window.removeEventListener("keydown", onKey, true);
     window.removeEventListener("resize", place);
     overlay.remove();

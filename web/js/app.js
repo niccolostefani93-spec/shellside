@@ -3,7 +3,7 @@
 import { api } from "./api.js";
 import { Navigator } from "./navigator.js";
 import { TerminalSurface } from "./terminal.js";
-import { startTour, tourSeen } from "./tour.js";
+import { startTour, seenInThisBrowser } from "./tour.js";
 import { askModel, commandForm, openSettings, pickFolder, promptText,
          savedCommands, scriptCodeUpload, scriptForm, tagButton } from "./modals.js";
 import { clipboardImageAvailability, confirm, contextMenu, copyToClipboard, dismissSheet, el,
@@ -624,7 +624,15 @@ function openTour() {
     touch: isTouch,
     compact: document.body.classList.contains("compact"),
     openChrome: (open) => toggleChrome(open),
+    onClose: markTourSeen,
   });
+}
+
+/** Once per install: every browser and address after this one skips the tour. */
+function markTourSeen() {
+  if (state.settings.tour_seen) return;
+  state.settings.tour_seen = true;
+  api.saveSettings({ tour_seen: true }).catch(() => { /* shows again next visit */ });
 }
 
 function toggleChrome(open = !document.body.classList.contains("chrome-open")) {
@@ -1666,8 +1674,11 @@ async function main() {
   const first = tabs.find((tab) => tab.sessionId && tab.sessionId === lastActive) || tabs[0];
   if (first) activateTab(first.id);
 
-  // First visit from this device: the tour, once the layout has settled.
-  if (!tourSeen()) setTimeout(openTour, 700);
+  // First visit to this install: the tour, once the layout has settled.
+  if (!state.settings.tour_seen) {
+    if (seenInThisBrowser()) markTourSeen();
+    else setTimeout(openTour, 700);
+  }
 }
 
 main();

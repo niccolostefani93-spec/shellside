@@ -23,7 +23,7 @@ from . import datahome
 # Printed at startup and returned by /api/bootstrap, so "which build is
 # actually serving me right now" is never a guess — a stale process still
 # holding the port looks identical to a new one otherwise.
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 ROOT = Path(__file__).resolve().parent.parent
 SERVICES_DIR = ROOT / "services"
@@ -237,6 +237,10 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     # Run each new shell inside Shellside's own tmux server, so it survives
     # Shellside restarting (Settings › General).
     "tmux_sessions": False,
+    # The guided tour has been shown (or skipped) once. Kept here, not in the
+    # browser, so it shows once per install rather than once per browser or
+    # address (a tunnel URL that changes would otherwise bring it back).
+    "tour_seen": False,
     # Injection behaviour
     "clear_line_before_inject": True,
     "block_inject_when_busy": True,
