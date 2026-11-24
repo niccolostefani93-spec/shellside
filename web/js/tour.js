@@ -63,7 +63,8 @@ const STEPS = [
     title: "More actions",
     text: "Right-click a file, a folder, the empty space or the terminal for more: "
       + "rename, move, download, extract… An action types its command at the prompt "
-      + "and waits for Enter, so you always see what will run.",
+      + "and waits for Enter, so you always see what will run. Remove asks first, "
+      + "then runs.",
     only: "desktop",
   },
   {
@@ -72,7 +73,7 @@ const STEPS = [
     title: "More actions",
     text: "Long-press a file, a folder or the empty space for more: rename, move, "
       + "download, upload, extract… An action types its command at the prompt and "
-      + "waits for Enter, so you always see what will run.",
+      + "waits for Enter, so you always see what will run. Remove asks first, then runs.",
     only: "touch",
   },
   {
