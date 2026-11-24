@@ -1,0 +1,8 @@
+{
+  "name": "Copy path",
+  "description": "Put the absolute path on the clipboard.",
+  "icon": "\u29c9",
+  "order": 60,
+  "action": "builtin",
+  "builtin": "copy_path"
+}

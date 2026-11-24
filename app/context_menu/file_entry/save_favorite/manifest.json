@@ -1,0 +1,9 @@
+{
+  "name": "Save folder",
+  "description": "Add the current folder to favourites.",
+  "icon": "\u2605",
+  "order": 50,
+  "scope": "folder",
+  "action": "builtin",
+  "builtin": "save_favorite"
+}

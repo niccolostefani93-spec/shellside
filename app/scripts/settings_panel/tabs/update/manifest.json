@@ -1,0 +1,7 @@
+{
+  "name": "Update / Backup",
+  "description": "Import a code update as a zip, and download a backup of your settings.",
+  "order": 80,
+  "action": "builtin",
+  "builtin": "settings_update"
+}

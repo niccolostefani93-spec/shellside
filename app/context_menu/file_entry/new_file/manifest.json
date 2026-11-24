@@ -1,0 +1,19 @@
+{
+  "name": "New file",
+  "description": "Create an empty file in this folder.",
+  "icon": "+",
+  "order": 10,
+  "bold": true,
+  "scope": "folder",
+  "action": "command",
+  "execute": false,
+  "prompt": {
+    "field": "new_name",
+    "title": "New file",
+    "label": "File name",
+    "default": "new_file.txt",
+    "confirm_label": "Insert",
+    "select_stem": true,
+    "note": "The command is typed into the terminal, not run. Read it, then press Enter."
+  }
+}

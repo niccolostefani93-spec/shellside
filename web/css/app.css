@@ -1,0 +1,875 @@
+/* Shellside
+   One typeface, one grid, one accent. The chrome is built from the same
+   material as the thing it wraps: a terminal. */
+
+:root {
+  --ground: #10141a;
+  --panel: #161c25;
+  --raised: #1c242f;
+  --rule: #26303d;
+  --ink: #c6d1de;
+  --ink-dim: #8a99ab;
+  --ink-faint: #63717f;
+
+  --amber: #e0a247;   /* the single accent: current position, primary action */
+  --cyan: #6aacc6;    /* directories and paths */
+  --danger: #d4635f;
+  --warn: #d9873f;
+  --info: #5f97ca;
+  --ok: #7fae6c;
+
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --row: 30px;
+  --gap: 8px;
+  --edge: 12px;
+  --speed: 130ms;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  display: grid;
+  /* minmax(0, 1fr) on the column, and min-width on the children, stop grid
+     items from sizing to their intrinsic content width. Without both, the top
+     bar's chips widen the whole document and every panel overflows the phone. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+/* Every region has a fixed row, so hiding one (as the phone layout does)
+   never shifts the terminal out of the stretching row. */
+#topbar { grid-row: 1; }
+#tabbar { grid-row: 2; }
+#statusline { grid-row: 3; }
+#panel { grid-row: 4; }
+#terminal-wrap { grid-row: 5; }
+#keybar { grid-row: 6; }
+
+/* Follows the visual viewport (set by app.js), so the on-screen keyboard
+   pushes the key bar up instead of covering it. */
+html, body { height: var(--app-height, 100%); }
+
+body > * { min-width: 0; max-width: 100%; }
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+}
+
+button { cursor: pointer; }
+
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 0; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ------------------------------------------------------------------ topbar */
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--gap);
+  padding: 6px var(--edge);
+  background: var(--panel);
+  border-bottom: 1px solid var(--rule);
+  min-height: 38px;
+  align-items: center;
+}
+
+.topbar-side {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+  min-width: 0;
+}
+.topbar-side::-webkit-scrollbar { display: none; }
+.topbar-side--end { justify-content: flex-end; flex: 0 0 auto; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  white-space: nowrap;
+  background: var(--raised);
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: var(--ink-dim);
+  transition: color var(--speed), border-color var(--speed), background var(--speed);
+}
+.chip:hover { color: var(--ink); border-color: var(--rule); }
+/* The "+" after the saved commands: quieter than a real chip, so it reads as
+   "add one here" rather than as a command of its own. */
+.chip--add { background: none; border: 1px dashed var(--rule); padding: 4px 8px; }
+.chip--add:hover { border-style: solid; border-color: var(--amber); }
+.chip .icon { color: var(--ink-faint); }
+.chip:hover .icon { color: var(--amber); }
+.chip[data-style="danger"]:hover { color: var(--danger); border-color: var(--danger); }
+.chip[data-style="danger"]:hover .icon { color: var(--danger); }
+.chip[data-style="info"]:hover { color: var(--info); border-color: var(--info); }
+
+/* -------------------------------------------------------------- statusline */
+/* The signature element. Position is not a label here, it is the control:
+   every segment is a jump, and the right end reports what owns the PTY. */
+
+.statusline {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  background: var(--ground);
+  border-bottom: 1px solid var(--rule);
+  min-height: 34px;
+  padding-left: var(--edge);
+  gap: var(--gap);
+  overflow: hidden;
+}
+
+.crumbs {
+  display: flex;
+  align-items: stretch;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  min-width: 0;
+}
+.crumbs::-webkit-scrollbar { display: none; }
+
+.crumb {
+  display: flex;
+  align-items: center;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.crumb button {
+  padding: 0 14px 0 10px;
+  height: 100%;
+  color: var(--ink-dim);
+  letter-spacing: 0.02em;
+  transition: color var(--speed);
+}
+.crumb button:hover { color: var(--cyan); }
+
+/* chevron divider, drawn not typed, so it stays crisp at any zoom */
+.crumb::after {
+  content: "";
+  width: 7px;
+  align-self: center;
+  height: 7px;
+  border-right: 1px solid var(--ink-faint);
+  border-top: 1px solid var(--ink-faint);
+  transform: rotate(45deg);
+  margin-right: 4px;
+  flex: 0 0 auto;
+}
+.crumb:last-child::after { display: none; }
+.crumb:last-child button {
+  color: var(--amber);
+  font-weight: 700;
+  padding-right: 12px;
+}
+
+.statusline-right {
+  display: flex;
+  align-items: center;
+  padding-right: var(--edge);
+  flex: 0 0 auto;
+}
+
+.proc {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  flex: 0 0 auto;
+}
+.proc.is-idle .dot { background: var(--ok); }
+.proc.is-busy .dot { background: var(--amber); }
+.proc.is-busy { color: var(--amber); }
+.proc.is-dead .dot { background: var(--danger); }
+.proc.is-dead { color: var(--danger); }
+
+/* -------------------------------------------------------------------- panel */
+
+.panel {
+  background: var(--panel);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  max-height: 34vh;
+}
+.panel.is-collapsed .grid,
+.panel.is-collapsed .panel-bar-tools .ghost:not(#collapse-panel) { display: none; }
+.panel.is-collapsed #collapse-panel { transform: rotate(180deg); }
+
+.panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+  padding: 5px var(--edge);
+  border-bottom: 1px solid var(--rule);
+  flex: 0 0 auto;
+}
+
+.segmented { display: flex; gap: 2px; }
+.seg {
+  padding: 3px 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+  border-bottom: 2px solid transparent;
+  transition: color var(--speed), border-color var(--speed);
+}
+.seg:hover { color: var(--ink-dim); }
+.seg.is-on { color: var(--amber); border-bottom-color: var(--amber); }
+
+.panel-bar-tools { display: flex; align-items: center; gap: 2px; }
+
+.ghost {
+  padding: 3px 9px;
+  font-size: 11px;
+  color: var(--ink-dim);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  transition: color var(--speed), background var(--speed), border-color var(--speed);
+}
+.ghost:hover { color: var(--ink); background: var(--raised); border-color: var(--ink-faint); }
+.ghost[aria-pressed="true"] { color: var(--amber); background: var(--raised); }
+.count { color: var(--ink-faint); }
+.ghost { white-space: nowrap; }
+.lbl-narrow { display: none; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 1px;
+  padding: var(--gap) var(--edge) 12px;
+  overflow-y: auto;
+  align-content: start;
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  height: var(--row);
+  text-align: left;
+  color: var(--ink-dim);
+  border-radius: 2px;
+  min-width: 0;
+  transition: background var(--speed), color var(--speed);
+}
+.entry:hover { background: var(--raised); color: var(--ink); }
+.entry .mark { color: var(--ink-faint); flex: 0 0 auto; width: 10px; }
+.entry .label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.entry .meta {
+  margin-left: auto;
+  color: var(--ink-faint);
+  font-size: 11px;
+  flex: 0 0 auto;
+  opacity: 0;
+  transition: opacity var(--speed);
+}
+.entry:hover .meta { opacity: 1; }
+
+.entry.is-dir .mark, .entry.is-dir:hover .label { color: var(--cyan); }
+.entry.is-dir .label { color: #9fc3d2; }
+.entry.is-native .mark { color: var(--ink-faint); }
+.entry.is-native:hover .mark { color: var(--info); }
+.entry.is-exec .mark { color: var(--ok); }
+.entry.is-hidden-type { opacity: 0.55; }
+
+.empty {
+  grid-column: 1 / -1;
+  padding: 14px 8px;
+  color: var(--ink-faint);
+}
+.empty b { color: var(--ink-dim); font-weight: 500; }
+
+/* -------------------------------------------------------------------- tabs */
+/* One PTY per tab. Switching tabs swaps which host is visible and which
+   folder the panel below is showing — the panel always belongs to whichever
+   tab has the wheel. */
+
+.tabbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px var(--edge);
+  background: var(--panel);
+  border-bottom: 1px solid var(--rule);
+  overflow-x: auto;
+  scrollbar-width: none;
+  min-height: 32px;
+}
+.tabbar::-webkit-scrollbar { display: none; }
+
+.shelltab-add {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-faint);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  font-size: 15px;
+  line-height: 1;
+}
+.shelltab-add:hover { color: var(--amber); border-color: var(--amber); }
+
+.shelltab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  padding: 3px 4px 3px 10px;
+  background: var(--raised);
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition: color var(--speed), border-color var(--speed), background var(--speed);
+}
+.shelltab:hover { color: var(--ink-dim); border-color: var(--rule); }
+.shelltab.is-active { color: var(--ink); background: var(--ground); border-color: var(--amber); }
+
+.shelltab-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+.shelltab-dot.is-idle { background: var(--ok); }
+.shelltab-dot.is-busy { background: var(--amber); }
+.shelltab-dot.is-dead { background: var(--danger); }
+
+.shelltab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.shelltab-title-input {
+  width: 90px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--amber);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  padding: 0;
+}
+.shelltab-title-input:focus { outline: none; }
+
+.shelltab-close {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  visibility: hidden;
+}
+.shelltab:hover .shelltab-close, .shelltab.is-active .shelltab-close { visibility: visible; }
+.shelltab-close:hover { color: var(--danger); background: var(--panel); }
+
+/* ----------------------------------------------------------------- terminal */
+
+.terminal-wrap {
+  position: relative;
+  min-height: 0;
+  background: var(--ground);
+  overflow: hidden;
+}
+.term-host {
+  position: absolute;
+  inset: 6px 0 0 var(--edge);
+  display: none;
+}
+.term-host.is-active { display: block; }
+.xterm .xterm-viewport { background: transparent !important; }
+
+/* --------------------------------------------------------------- menus */
+
+.menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 214px;
+  max-width: 300px;
+  background: var(--raised);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+  padding: 4px;
+  animation: pop var(--speed) ease-out;
+}
+@keyframes pop { from { opacity: 0; transform: translateY(-3px); } }
+
+.menu-head {
+  padding: 6px 10px 7px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-item {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 10px;
+  text-align: left;
+  color: var(--ink-dim);
+  border-radius: 2px;
+  transition: background var(--speed), color var(--speed);
+}
+.menu-item:hover { background: var(--panel); color: var(--ink); }
+.menu-item .icon { color: var(--ink-faint); width: 14px; flex: 0 0 auto; }
+.menu-item.is-default { color: var(--ink); font-weight: 700; }
+.menu-item[data-style="danger"] { color: var(--danger); }
+.menu-item[data-style="warning"] { color: var(--warn); }
+.menu-item[data-style="info"] { color: var(--info); }
+.menu-item .hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink-faint);
+  font-weight: 400;
+}
+.menu-sep { height: 1px; background: var(--rule); margin: 4px 0; }
+
+/* --------------------------------------------------------------- overlays */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(8, 11, 15, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fade var(--speed) ease-out;
+}
+@keyframes fade { from { opacity: 0; } }
+
+/* A class that sets `display` outranks the `hidden` attribute's UA rule, so
+   without this the invisible scrim keeps swallowing every click on the page. */
+.scrim[hidden], .menu[hidden] { display: none !important; }
+
+.sheet {
+  width: min(760px, 100%);
+  max-height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+.sheet--narrow { width: min(460px, 100%); }
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+  padding: 12px var(--edge);
+  border-bottom: 1px solid var(--rule);
+  flex: 0 0 auto;
+}
+.sheet-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--amber);
+  font-weight: 700;
+}
+/* Extra bottom padding so the last control never sits flush against the
+   footer and looks cut off when the body scrolls. */
+.sheet-body { padding: var(--edge) var(--edge) calc(var(--edge) + 12px); overflow-y: auto; flex: 1 1 auto; }
+.sheet-foot {
+  display: flex;
+  gap: var(--gap);
+  justify-content: flex-end;
+  padding: 10px var(--edge);
+  border-top: 1px solid var(--rule);
+  flex: 0 0 auto;
+}
+
+.btn {
+  padding: 6px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  color: var(--ink-dim);
+  transition: color var(--speed), border-color var(--speed), background var(--speed);
+}
+.btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+.btn--primary { border-color: var(--amber); color: var(--amber); }
+.btn--primary:hover { background: var(--amber); color: var(--ground); }
+.btn--danger { border-color: var(--danger); color: var(--danger); }
+.btn--danger:hover { background: var(--danger); color: var(--ground); }
+
+.field { display: block; margin-bottom: 14px; }
+.field-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+  margin-bottom: 5px;
+}
+.field-note { color: var(--ink-faint); font-size: 11px; margin-top: 5px; }
+
+.input, .textarea, .select {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--ground);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  color: var(--ink);
+}
+.input:focus, .textarea:focus, .select:focus {
+  outline: none;
+  border-color: var(--amber);
+}
+.textarea { min-height: 150px; resize: vertical; line-height: 1.55; }
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 var(--edge);
+  border-bottom: 1px solid var(--rule);
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 0 0 auto;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  padding: 8px 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+.tab:hover { color: var(--ink-dim); }
+.tab.is-on { color: var(--amber); border-bottom-color: var(--amber); }
+
+.rows { display: flex; flex-direction: column; }
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--gap);
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+  width: 100%;
+}
+.row:last-child { border-bottom: none; }
+.row-main { min-width: 0; flex: 1 1 auto; }
+.row-name { color: var(--ink); }
+.row-desc { color: var(--ink-faint); font-size: 11px; }
+.row-code {
+  color: var(--cyan);
+  font-size: 11px;
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px dashed var(--rule);
+  word-break: break-all;
+}
+.row-tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+  border: 1px solid var(--rule);
+  padding: 1px 6px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+button.row { transition: background var(--speed); border-radius: 2px; }
+button.row:hover { background: var(--raised); }
+
+/* Service accordion (Settings › Model): the active service opens and holds its
+   own settings, marked by an amber rule so they read as part of that row. */
+.service { border-bottom: 1px solid var(--rule); }
+.service:last-child { border-bottom: none; }
+.service > .row { border-bottom: none; }
+.service-mark { color: var(--ink-faint); flex: 0 0 auto; width: 10px; }
+.service.is-active .service-mark,
+.service.is-active .row-name { color: var(--amber); }
+.row-tag.is-on { color: var(--amber); border-color: var(--amber); }
+.service-detail {
+  margin: 0 0 12px 6px;
+  padding: 4px 0 2px 16px;
+  border-left: 2px solid var(--amber);
+}
+.service-detail .field:last-of-type { margin-bottom: 8px; }
+.service-note { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--rule); }
+
+/* Per-row switches in the context menu editor */
+.row-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  max-width: 55%;
+}
+.tagbtn {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--ink-faint);
+  border: 1px solid var(--rule);
+  padding: 2px 7px;
+  border-radius: 2px;
+  white-space: nowrap;
+  transition: color var(--speed), border-color var(--speed);
+}
+.tagbtn:hover { color: var(--ink); border-color: var(--ink-faint); }
+.tagbtn.is-on { color: var(--amber); border-color: var(--amber); }
+.tagbtn[data-style="warning"].is-on { color: var(--warn); border-color: var(--warn); }
+.tagbtn[data-style="danger"] { color: var(--danger); border-color: var(--rule); }
+.tagbtn[data-style="danger"]:hover { border-color: var(--danger); }
+.row.is-off .row-name, .row.is-off .row-desc, .row.is-off .row-code { opacity: 0.4; }
+
+/* A row whose left-hand side is itself the button that runs it */
+.row-click { display: block; text-align: left; }
+.row-click:hover .row-name { color: var(--amber); }
+.row-click:hover .row-code { color: var(--ink); }
+
+@media (max-width: 720px) {
+  .row-tools { max-width: 100%; justify-content: flex-start; }
+}
+
+/* Ask-the-model answer with clickable command chips */
+.answer { white-space: pre-wrap; line-height: 1.6; color: var(--ink-dim); }
+.cmd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 1px;
+  padding: 2px 9px;
+  background: var(--ground);
+  border: 1px solid var(--amber);
+  border-radius: 2px;
+  color: var(--amber);
+  vertical-align: baseline;
+  transition: background var(--speed), color var(--speed);
+}
+.cmd-chip::before { content: "\203a"; color: var(--ink-faint); }
+.cmd-chip:hover { background: var(--amber); color: var(--ground); }
+.cmd-chip:hover::before { color: var(--ground); }
+
+.spinner {
+  display: inline-block;
+  color: var(--amber);
+  animation: blink 900ms steps(2) infinite;
+}
+@keyframes blink { 50% { opacity: 0.25; } }
+
+/* --------------------------------------------------------------- toasts */
+
+.toasts {
+  position: fixed;
+  right: var(--edge);
+  bottom: var(--edge);
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(400px, calc(100vw - 24px));
+  pointer-events: none;
+}
+.toast {
+  padding: 9px 12px;
+  background: var(--raised);
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--ink-faint);
+  border-radius: 2px;
+  color: var(--ink-dim);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: slide var(--speed) ease-out;
+}
+@keyframes slide { from { opacity: 0; transform: translateX(10px); } }
+.toast[data-level="error"] { border-left-color: var(--danger); color: var(--danger); }
+.toast[data-level="warning"] { border-left-color: var(--warn); color: var(--warn); }
+.toast[data-level="success"] { border-left-color: var(--ok); }
+.toast[data-level="info"] { border-left-color: var(--info); }
+
+/* --------------------------------------------------------------- responsive */
+
+@media (max-width: 720px) {
+  :root { --edge: 8px; }
+  body { font-size: 12px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .panel { max-height: 40vh; }
+  .proc span:not(.dot) { display: none; }
+  .lbl-wide { display: none; }
+  .lbl-narrow { display: inline; }
+  .entry .meta { display: none; }
+  .sheet { max-height: 88vh; }
+}
+
+/* ----------------------------------------------------------- drag and drop */
+
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--amber);
+  background: color-mix(in srgb, var(--ground) 72%, transparent);
+  pointer-events: none;            /* the drop lands on what is underneath */
+}
+.drop-overlay.is-visible { display: flex; }
+.drop-label {
+  max-width: min(90vw, 640px);
+  padding: 14px 18px;
+  border: 1px solid var(--amber);
+  background: var(--panel);
+  color: var(--amber);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+.entry.is-dragging { opacity: .45; }
+.entry.is-drop-target {
+  outline: 2px solid var(--amber);
+  outline-offset: -2px;
+  position: relative;
+  z-index: 91;                     /* above the overlay, so the target shows */
+  background: var(--panel);
+}
+
+.upload-progress {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 95;
+  width: min(360px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 13px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+}
+.upload-title { color: var(--ink-dim); margin-bottom: 4px; overflow-wrap: anywhere; }
+.upload-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.upload-bar { height: 4px; margin: 8px 0 6px; background: var(--rule); }
+.upload-bar-fill { height: 100%; width: 0; background: var(--amber); transition: width .15s linear; }
+.upload-count { color: var(--ink-dim); font-size: 12px; }
+
+/* ----------------------------------------------------------------- phones */
+
+/* Keys a phone keyboard lacks. Only on touch screens. */
+.keybar { display: none; }
+body.is-touch .keybar {
+  display: flex;
+  gap: 4px;
+  padding: 5px var(--edge) calc(5px + env(safe-area-inset-bottom));
+  background: var(--panel);
+  border-top: 1px solid var(--rule);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: pan-x;
+}
+.keybar::-webkit-scrollbar { display: none; }
+.key {
+  flex: 0 0 auto;
+  min-width: 42px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--ground);
+  color: var(--ink);
+  font-size: 14px;
+}
+.key:active, .key.is-down { background: var(--rule); }
+.key.is-armed { color: var(--ground); background: var(--amber); border-color: var(--amber); }
+.key--dim { color: var(--ink-dim); }
+.key-gap { flex: 0 0 6px; }
+
+.chrome-toggle { display: none; }
+
+/* Narrow screens and touch devices (body.compact, set by app.js, so a phone
+   in "Desktop site" mode gets it too): only the tab bar and the folder path
+   stay above the terminal. Commands and folders open from the tab bar's menu
+   button, and close again when the keyboard comes up. */
+body.compact .chrome-toggle { display: inline-flex; }
+body.compact:not(.chrome-open) #topbar,
+body.compact:not(.chrome-open) #panel { display: none; }
+body.compact.chrome-open .chrome-toggle:not(.fullscreen-toggle) { color: var(--amber); border-color: var(--amber); }
+body.compact.no-fullscreen .fullscreen-toggle { display: none; }
+body.compact.kb-open:not(.chrome-open) #statusline { display: none; }
+body.compact .tabbar { padding-top: 3px; padding-bottom: 3px; }
+body.compact .term-host { inset: 4px 0 0 6px; }
+/* The page handles vertical drags itself (see enableTouchScroll). */
+body.is-touch .term-host { touch-action: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

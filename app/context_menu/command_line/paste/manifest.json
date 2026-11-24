@@ -1,0 +1,10 @@
+{
+  "name": "Paste",
+  "description": "Type the device clipboard into the terminal.",
+  "icon": "\u2398",
+  "order": 17,
+  "bold": true,
+  "style": "info",
+  "action": "builtin",
+  "builtin": "paste"
+}

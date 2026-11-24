@@ -1,0 +1,51 @@
+# Shellside shell integration for bash.
+#
+# Shellside starts bash as `bash --rcfile <this file> -i`. That replaces the
+# usual startup files, so this file loads them first, exactly as plain
+# `bash -i` would, and only then adds Shellside's own pieces. Nothing here
+# writes to your home folder.
+
+[ -f /etc/bash.bashrc ] && . /etc/bash.bashrc
+[ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
+
+# Outside Shellside (variables missing), stop here: the shell is just bash.
+[ -n "$SHELLSIDE_ASSIST_URL" ] || return 0
+
+# Keep any handler the distribution installed (Ubuntu's command-not-found
+# suggests packages); it still runs whenever the assistant stays silent.
+if declare -F command_not_found_handle >/dev/null \
+   && ! declare -F __shellside_cnf_fallback >/dev/null; then
+    eval "__shellside_cnf_fallback()$(declare -f command_not_found_handle | tail -n +2)"
+fi
+
+__shellside_cnf_plain() {
+    if declare -F __shellside_cnf_fallback >/dev/null; then
+        __shellside_cnf_fallback "$@"
+        return $?
+    fi
+    printf 'bash: %s: command not found\n' "$1" >&2
+    return 127
+}
+
+# Bash calls this only when the first word of a line is not a command.
+command_not_found_handle() {
+    # Only for a person at a terminal: never for pipes, scripts or $(...).
+    if [ -t 0 ] && [ -t 1 ] && [ -t 2 ]; then
+        "$SHELLSIDE_PYTHON" -I "$SHELLSIDE_ASSIST_CLIENT" not_found "$PWD" "$@"
+        case $? in
+            0) return 127 ;;          # answered: still a failed command
+            130) return 130 ;;        # Ctrl-C while waiting
+        esac
+    fi
+    __shellside_cnf_plain "$@"
+}
+
+# Ask explicitly, for requests that start with a real command word:
+#   , find the five biggest files here
+,() {
+    if [ $# -eq 0 ]; then
+        echo "usage: , <what you want to do>" >&2
+        return 2
+    fi
+    "$SHELLSIDE_PYTHON" -I "$SHELLSIDE_ASSIST_CLIENT" ask "$PWD" "$@"
+}

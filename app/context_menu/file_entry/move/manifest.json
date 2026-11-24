@@ -1,0 +1,12 @@
+{
+  "name": "Move",
+  "description": "Pick a destination folder, then move this file there.",
+  "icon": "\u2192",
+  "order": 20,
+  "bold": true,
+  "style": "warning",
+  "action": "command",
+  "execute": true,
+  "needs_picker": "target_path",
+  "picker_title": "Move to which folder?"
+}

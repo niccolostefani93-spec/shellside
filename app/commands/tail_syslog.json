@@ -1,0 +1,11 @@
+{
+  "name": "Follow system log",
+  "description": "Live system log. Ctrl-C to stop.",
+  "command": "journalctl -f -n 50",
+  "order": 40,
+  "topbar": true,
+  "execute": false,
+  "confirm": false,
+  "confirm_message": "",
+  "style": "default"
+}

@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Runtime state and secrets: never commit. Current versions keep all of it
+# in DATA_HOME (~/.config/shellside, see server/datahome.py); these are where
+# older versions wrote it inside the code directory, and where an imported
+# update is staged before the supervisor applies it.
+.auth/
+.run/
+app/settings.json
+app/context_menu/overrides.json
+_pending_update/
+
+# Private working notes (handoff, progress log, audits)
+.dev/
+audit.txt
+
+# Editors / OS
+*.bak
+*.swp
+.idea/
+.vscode/
+.DS_Store

@@ -1,0 +1,10 @@
+{
+  "name": "Paste image",
+  "description": "Save the image on the device clipboard (a screenshot, say) into the folder the shell is in.",
+  "icon": "▧",
+  "order": 16,
+  "bold": true,
+  "style": "info",
+  "action": "builtin",
+  "builtin": "paste_image"
+}

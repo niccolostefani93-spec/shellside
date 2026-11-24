@@ -1,0 +1,11 @@
+{
+  "name": "System monitor",
+  "description": "Processes, CPU and memory, live. htop if it is installed, top otherwise. q to quit.",
+  "command": "if command -v htop >/dev/null; then htop; else top; fi",
+  "order": 20,
+  "topbar": true,
+  "execute": false,
+  "confirm": false,
+  "confirm_message": "",
+  "style": "default"
+}

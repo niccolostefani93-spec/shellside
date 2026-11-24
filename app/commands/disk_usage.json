@@ -1,0 +1,11 @@
+{
+  "name": "Disk usage",
+  "description": "Free and used space on every mounted filesystem.",
+  "command": "df -h",
+  "order": 10,
+  "topbar": true,
+  "execute": true,
+  "confirm": false,
+  "confirm_message": "",
+  "style": "default"
+}

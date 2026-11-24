@@ -1,0 +1,11 @@
+{
+  "name": "Claude Code",
+  "description": "Start Claude Code in the current folder.",
+  "command": "claude",
+  "order": 30,
+  "topbar": true,
+  "execute": false,
+  "confirm": false,
+  "confirm_message": "",
+  "style": "default"
+}

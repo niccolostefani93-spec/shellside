@@ -1,0 +1,11 @@
+{
+  "name": "Create zip copy",
+  "description": "Compress this folder into a .zip alongside it \u2014 the original is left untouched.",
+  "icon": "\u25a4",
+  "order": 51,
+  "action": "command",
+  "execute": true,
+  "match": {
+    "kinds": ["dir"]
+  }
+}

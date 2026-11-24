@@ -1,0 +1,7 @@
+{
+  "name": "General",
+  "description": "Shell, starting folder and terminal appearance.",
+  "order": 10,
+  "action": "builtin",
+  "builtin": "settings_general"
+}

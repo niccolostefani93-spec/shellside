@@ -1,0 +1,9 @@
+{
+  "name": "Ask the model",
+  "description": "Describe what you wanted; get a command back.",
+  "icon": "\u2318",
+  "order": 60,
+  "scope": "folder",
+  "action": "builtin",
+  "builtin": "ask_llm"
+}

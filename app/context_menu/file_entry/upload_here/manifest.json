@@ -1,0 +1,11 @@
+{
+  "name": "Upload here",
+  "description": "Copy a file from this device into the current folder.",
+  "icon": "\u2191",
+  "order": 40,
+  "bold": true,
+  "style": "info",
+  "scope": "folder",
+  "action": "builtin",
+  "builtin": "upload"
+}

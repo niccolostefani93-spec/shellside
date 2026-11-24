@@ -1,0 +1,7 @@
+{
+  "name": "Context menus",
+  "description": "Every discovered menu action and where it came from.",
+  "order": 30,
+  "action": "builtin",
+  "builtin": "settings_context_menu_editor"
+}

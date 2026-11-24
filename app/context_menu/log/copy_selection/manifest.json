@@ -1,0 +1,8 @@
+{
+  "name": "Copy",
+  "description": "Copy the selected terminal text.",
+  "icon": "\u29c9",
+  "order": 20,
+  "action": "builtin",
+  "builtin": "copy_selection"
+}

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Edit — Shellside</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="/static/css/app.css">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column; }
+  header {
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+    border-bottom: 1px solid var(--rule); background: var(--panel);
+  }
+  header .name { font-weight: 700; color: var(--ink); }
+  header .path { color: var(--ink-faint); font-size: 12px; flex: 1; overflow: hidden;
+                 text-overflow: ellipsis; white-space: nowrap; }
+  header .msg { font-size: 12px; color: var(--ink-faint); min-width: 90px; text-align: right; }
+  header .msg.dirty { color: var(--warn); }
+  header .msg.error { color: var(--danger); }
+  header .msg.saved { color: var(--cyan); }
+  textarea {
+    flex: 1; width: 100%; box-sizing: border-box; resize: none; border: none;
+    outline: none; padding: 14px; background: var(--ground); color: var(--ink);
+    font-family: "JetBrains Mono", monospace; font-size: 13px; line-height: 1.5;
+    tab-size: 2;
+  }
+</style>
+</head>
+<body>
+<header>
+  <span class="name" id="name"></span>
+  <span class="path" id="path"></span>
+  <span class="msg" id="msg">loading\u2026</span>
+  <button class="btn btn--primary" id="save" disabled>Save</button>
+</header>
+<textarea id="editor" spellcheck="false" disabled></textarea>
+
+<script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  const path = params.get("path");
+  const editor = document.getElementById("editor");
+  const msg = document.getElementById("msg");
+  const saveBtn = document.getElementById("save");
+  const fileUrl = "/api/file?path=" + encodeURIComponent(path);
+
+  document.getElementById("path").textContent = path || "";
+  document.getElementById("name").textContent = (path || "").split("/").pop();
+
+  let original = null;
+
+  function setMsg(text, cls) {
+    msg.textContent = text;
+    msg.className = "msg" + (cls ? " " + cls : "");
+  }
+
+  if (!path) {
+    setMsg("No file given.", "error");
+    return;
+  }
+
+  fetch(fileUrl)
+    .then((r) => { if (!r.ok) throw new Error("Could not load the file."); return r.text(); })
+    .then((text) => {
+      original = text;
+      editor.value = text;
+      editor.disabled = false;
+      editor.focus();
+      setMsg("");
+    })
+    .catch((err) => setMsg(err.message, "error"));
+
+  editor.addEventListener("input", () => {
+    const dirty = editor.value !== original;
+    saveBtn.disabled = !dirty;
+    if (dirty) setMsg("unsaved changes", "dirty");
+    else setMsg("");
+  });
+
+  async function save() {
+    if (saveBtn.disabled) return;
+    saveBtn.disabled = true;
+    setMsg("saving\u2026");
+    try {
+      const response = await fetch(fileUrl, { method: "PUT", body: editor.value });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || "Could not save.");
+      original = editor.value;
+      setMsg("saved", "saved");
+      setTimeout(() => { if (editor.value === original) setMsg(""); }, 1500);
+    } catch (err) {
+      setMsg(err.message, "error");
+      saveBtn.disabled = false;
+    }
+  }
+
+  saveBtn.addEventListener("click", save);
+  editor.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "s") {
+      event.preventDefault();
+      save();
+    }
+  });
+
+  window.addEventListener("beforeunload", (event) => {
+    if (editor.value !== original) { event.preventDefault(); event.returnValue = ""; }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "Settings",
+  "description": "Folders, file types, services and appearance.",
+  "icon": "\u2699",
+  "order": 99,
+  "action": "builtin",
+  "builtin": "settings"
+}

@@ -1,0 +1,11 @@
+{
+  "name": "Edit as text",
+  "description": "Open this file in the built-in text editor \u2014 works on any file, not just recognised text types. Binary content will fail to save legibly; nothing stops you from trying anyway.",
+  "icon": "\u270f",
+  "order": 13,
+  "action": "builtin",
+  "builtin": "edit_as_text",
+  "match": {
+    "kinds": ["file"]
+  }
+}

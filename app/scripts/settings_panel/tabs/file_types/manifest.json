@@ -1,0 +1,7 @@
+{
+  "name": "File types",
+  "description": "Which files show in the folder panel and what a click does.",
+  "order": 20,
+  "action": "builtin",
+  "builtin": "settings_file_types"
+}

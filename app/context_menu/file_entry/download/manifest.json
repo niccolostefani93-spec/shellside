@@ -1,0 +1,10 @@
+{
+  "name": "Download",
+  "description": "Send this file to the device you are using.",
+  "icon": "\u2193",
+  "order": 30,
+  "bold": true,
+  "style": "info",
+  "action": "builtin",
+  "builtin": "download"
+}

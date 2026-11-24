@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Sign in — Shellside</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="/static/css/app.css">
+<style>
+  body { display: flex; align-items: center; justify-content: center; height: 100vh; padding: 20px; }
+  .card {
+    width: 100%; max-width: 340px; background: var(--panel);
+    border: 1px solid var(--rule); border-radius: 3px; padding: 28px 26px;
+  }
+  .mark { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+  .mark .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+  .mark span { color: var(--amber); font-weight: 700; letter-spacing: 0.04em; }
+  .field { margin-bottom: 14px; }
+  .msg { min-height: 18px; font-size: 12px; margin-top: 10px; color: var(--danger); }
+  .msg.info { color: var(--ink-faint); }
+  .hint { font-size: 11px; color: var(--ink-faint); margin-top: 16px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="mark"><i class="dot"></i><span>SHELLSIDE</span></div>
+
+  <div id="no-password" hidden>
+    <p style="color:var(--ink-dim);font-size:13px;margin-top:0;">
+      No LAN password is set yet. Sign in from the machine itself first —
+      open <code style="color:var(--cyan);">127.0.0.1</code> directly, or use
+      the link printed in the terminal that started this app — then set a
+      password in <b>Settings &rsaquo; Access</b>.
+    </p>
+  </div>
+
+  <div id="no-way-in" hidden>
+    <p style="color:var(--ink-dim);font-size:13px;margin-top:0;">
+      This isn't reachable from here right now. The LAN password only works
+      from this network, and no internet password is currently active for
+      enrolling a device from outside.
+    </p>
+  </div>
+
+  <div class="tabs" id="tabs" hidden style="display:flex;gap:4px;margin-bottom:16px;">
+    <button type="button" class="btn" id="tab-lan" style="flex:1;">LAN password</button>
+    <button type="button" class="btn" id="tab-internet" style="flex:1;">Internet password</button>
+  </div>
+
+  <form id="form">
+    <label class="field">
+      <span class="field-label" id="password-label">LAN password</span>
+      <input class="input" id="password" type="password" autocomplete="current-password" autofocus>
+    </label>
+    <button class="btn btn--primary" type="submit" style="width:100%;" id="submit">Sign in</button>
+    <div class="msg" id="msg"></div>
+  </form>
+
+  <div class="hint" id="local-hint" hidden>
+    Signed in from this machine? The link in the terminal that started the app
+    signs you in without a password.
+  </div>
+  <div class="hint" id="internet-hint" hidden>
+    A one-time password for enrolling a new device. Once it's accepted, this
+    device signs in on its own from then on — this field won't be needed
+    again unless it's revoked.
+  </div>
+</div>
+
+<script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  const next = params.get("next") || "/";
+  const passwordSet = {{PASSWORD_SET}};
+  const isLoopback = {{IS_LOOPBACK}};
+  const isLan = {{IS_LAN}};
+  const internetActive = {{INTERNET_ACTIVE}};
+
+  if (!passwordSet) document.getElementById("no-password").hidden = false;
+  if (isLoopback) document.getElementById("local-hint").hidden = false;
+
+  const form = document.getElementById("form");
+  const msg = document.getElementById("msg");
+  const submit = document.getElementById("submit");
+  const passwordInput = document.getElementById("password");
+  const passwordLabel = document.getElementById("password-label");
+
+  // The LAN password only ever works from a genuine LAN address (see
+  // server/auth_routes.py's _is_lan_peer) — never from loopback (same box,
+  // or a tunnel forwarding as loopback) and never from a public address.
+  // So it's only worth offering here at all when isLan is true; otherwise
+  // the internet password (if any is active) is the only door in.
+  let mode = isLan ? "lan" : "internet";   // "lan" | "internet"
+
+  if (!isLan && !internetActive) {
+    // Neither door is usable from wherever this request came from: no
+    // point showing a form that can only fail.
+    form.hidden = true;
+    document.getElementById("no-way-in").hidden = false;
+  } else if (isLan && internetActive) {
+    document.getElementById("tabs").hidden = false;
+    const tabLan = document.getElementById("tab-lan");
+    const tabInternet = document.getElementById("tab-internet");
+
+    function setMode(next) {
+      mode = next;
+      const isInternet = mode === "internet";
+      passwordLabel.textContent = isInternet ? "Internet password" : "LAN password";
+      passwordInput.value = "";
+      msg.textContent = "";
+      document.getElementById("internet-hint").hidden = !isInternet;
+      tabLan.classList.toggle("btn--primary", !isInternet);
+      tabInternet.classList.toggle("btn--primary", isInternet);
+      passwordInput.focus();
+    }
+    tabLan.addEventListener("click", () => setMode("lan"));
+    tabInternet.addEventListener("click", () => setMode("internet"));
+    setMode("lan");
+  } else {
+    // Exactly one door is usable — no tabs needed, just label the single
+    // field correctly and show its hint.
+    passwordLabel.textContent = mode === "internet" ? "Internet password" : "LAN password";
+    document.getElementById("internet-hint").hidden = mode !== "internet";
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    submit.disabled = true;
+    msg.textContent = "";
+    msg.className = "msg";
+    const endpoint = mode === "internet" ? "/auth/login-internet" : "/auth/login";
+    const requestBody = { password: passwordInput.value };
+    if (mode === "internet") {
+      // Best-effort client info to label this device with later — none of
+      // this is sensitive, it's the same stuff every page load already
+      // exposes to any script running on it.
+      requestBody.client_info = {
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+        language: navigator.language || "",
+        screen: `${screen.width}x${screen.height}`,
+      };
+    }
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        if (mode === "internet" && data.device_id) {
+          const label = (window.prompt(
+            "Access granted. Name this device (used to tell it apart later):",
+            "") || "").trim();
+          if (label) {
+            try {
+              await fetch("/api/access/devices/rename", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ device_id: data.device_id, label }),
+              });
+            } catch { /* not fatal — it just keeps the default label */ }
+          }
+        }
+        location.href = next;
+        return;
+      }
+      const messages = {
+        no_password: "No password is set yet — see above.",
+        lan_only: "The LAN password only works from this network.",
+        not_available: "The internet password has expired or run out of slots.",
+        no_slots: "No enrollment slots left for the internet password.",
+        bad_credentials: "Wrong password.",
+        ip_blocked: "Too many attempts from this address. Try again later.",
+        auth_blocked: "Sign-in is frozen after repeated failures. Clear it from Settings on this machine.",
+        throttled: `Wait ${Math.ceil(data.retry_after || 1)}s and try again.`,
+      };
+      msg.textContent = messages[data.error] || "Sign-in failed.";
+    } catch {
+      msg.textContent = "Could not reach the server.";
+    } finally {
+      submit.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>

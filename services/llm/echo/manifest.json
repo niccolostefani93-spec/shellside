@@ -1,0 +1,5 @@
+{
+  "name": "Offline stub",
+  "description": "No network. Returns a canned answer so the Ask-the-model flow can be tested end to end.",
+  "config": {}
+}

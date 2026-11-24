@@ -1,0 +1,12 @@
+{
+  "name": "Remove",
+  "description": "Delete this file or folder from the host.",
+  "icon": "\u2715",
+  "order": 40,
+  "bold": true,
+  "style": "danger",
+  "action": "command",
+  "execute": true,
+  "confirm": true,
+  "confirm_message": "Delete {file_name} permanently?"
+}

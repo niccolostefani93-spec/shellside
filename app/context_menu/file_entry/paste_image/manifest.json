@@ -1,0 +1,11 @@
+{
+  "name": "Paste image",
+  "description": "Save the image on the device clipboard (a screenshot, say) into the current folder.",
+  "icon": "▧",
+  "order": 41,
+  "bold": true,
+  "style": "info",
+  "scope": "folder",
+  "action": "builtin",
+  "builtin": "paste_image"
+}

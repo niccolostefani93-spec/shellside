@@ -1,0 +1,18 @@
+{
+  "name": "New folder",
+  "description": "Create a folder here.",
+  "icon": "\u229e",
+  "order": 20,
+  "bold": true,
+  "scope": "folder",
+  "action": "command",
+  "execute": false,
+  "prompt": {
+    "field": "new_name",
+    "title": "New folder",
+    "label": "Folder name",
+    "default": "new_folder",
+    "confirm_label": "Insert",
+    "note": "mkdir -p, so nested names like reports/2026 work in one go."
+  }
+}

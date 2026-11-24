@@ -1,0 +1,7 @@
+{
+  "name": "Access",
+  "description": "The LAN password, sessions, and sign-in limits.",
+  "order": 50,
+  "action": "builtin",
+  "builtin": "settings_security"
+}

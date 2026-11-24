@@ -1,0 +1,8 @@
+{
+  "name": "Select text…",
+  "description": "Recent output as plain text, to select and copy. Works even when a program like Claude Code or vim holds the mouse.",
+  "icon": "⧉",
+  "order": 18,
+  "action": "builtin",
+  "builtin": "select_text"
+}

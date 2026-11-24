@@ -1,0 +1,7 @@
+{
+  "name": "Model",
+  "description": "Choose which LLM service answers Ask-the-model.",
+  "order": 40,
+  "action": "builtin",
+  "builtin": "settings_llm_link"
+}

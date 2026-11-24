@@ -1,0 +1,10 @@
+{
+  "name": "Upload here",
+  "description": "Copy a file from this device into the folder the shell is in.",
+  "icon": "\u2191",
+  "order": 15,
+  "bold": true,
+  "style": "info",
+  "action": "builtin",
+  "builtin": "upload"
+}

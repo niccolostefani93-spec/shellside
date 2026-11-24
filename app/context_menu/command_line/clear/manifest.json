@@ -1,0 +1,8 @@
+{
+  "name": "Clear the log",
+  "description": "Wipe the visible terminal log.",
+  "icon": "\u2327",
+  "order": 60,
+  "action": "builtin",
+  "builtin": "clear"
+}

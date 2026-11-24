@@ -1,0 +1,17 @@
+{
+  "name": "Make text file\u2026",
+  "description": "Create a file and open it in nano straight away.",
+  "icon": "\u270e",
+  "order": 40,
+  "action": "command",
+  "execute": false,
+  "prompt": {
+    "field": "new_name",
+    "title": "New text file",
+    "label": "File name",
+    "default": "new_text_file.py",
+    "confirm_label": "Insert",
+    "select_stem": true,
+    "note": "nano takes over the terminal until you exit it with Ctrl-X."
+  }
+}

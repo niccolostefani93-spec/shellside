@@ -1,0 +1,14 @@
+{
+  "name": "Go here",
+  "description": "Change the shell into this folder.",
+  "icon": "\u203a",
+  "order": 5,
+  "bold": true,
+  "action": "command",
+  "execute": true,
+  "match": {
+    "kinds": [
+      "dir"
+    ]
+  }
+}

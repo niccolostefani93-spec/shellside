@@ -1,0 +1,7 @@
+{
+  "name": "Commands",
+  "description": "Saved commands: the chips on the left of the top bar, and the ones kept out of it.",
+  "order": 25,
+  "action": "builtin",
+  "builtin": "settings_commands"
+}

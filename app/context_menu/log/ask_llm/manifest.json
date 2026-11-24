@@ -1,0 +1,9 @@
+{
+  "name": "Ask about this output",
+  "description": "Send the selected log text to the model.",
+  "icon": "\u2318",
+  "order": 10,
+  "bold": true,
+  "action": "builtin",
+  "builtin": "ask_llm"
+}

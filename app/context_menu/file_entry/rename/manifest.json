@@ -1,0 +1,20 @@
+{
+  "name": "Rename",
+  "description": "Give this file a new name, in the same folder.",
+  "icon": "\u2710",
+  "order": 25,
+  "bold": true,
+  "style": "warning",
+  "action": "command",
+  "execute": false,
+  "scope": "entry",
+  "prompt": {
+    "field": "new_name",
+    "title": "Rename",
+    "label": "New name",
+    "default": "{file_name}",
+    "confirm_label": "Rename",
+    "select_stem": true,
+    "note": "The command is typed into the terminal, not run. Read it, then press Enter."
+  }
+}

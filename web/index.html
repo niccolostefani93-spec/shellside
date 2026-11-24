@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- interactive-widget: on Android the on-screen keyboard shrinks the page
+     instead of covering it, so the terminal and the key bar stay above it. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="color-scheme" content="dark">
+<title>Shellside</title>
+<!-- Optional webfont. The app is fully usable without it: the stack falls back
+     to the platform's own monospace face, which matters when the host has no
+     internet or you are behind a captive portal. -->
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet" media="print" onload="this.media='all'">
+<!-- xterm is vendored, not pulled from a CDN: a self-hosted terminal should
+     still open on a network that blocks everything except your tunnel. -->
+<link rel="stylesheet" href="/static/vendor/xterm.css">
+<link rel="stylesheet" href="/static/css/app.css">
+<script src="/static/vendor/xterm.js" defer></script>
+<script src="/static/vendor/addon-fit.js" defer></script>
+<script src="/static/vendor/addon-web-links.js" defer></script>
+</head>
+<body>
+
+<!-- Top bar: saved commands on the left (the + after them adds one), discovered
+     scripts on the right. Right-click its empty space for the same actions. -->
+<header class="topbar" id="topbar">
+  <nav class="topbar-side" id="topbar-commands" aria-label="Saved commands"></nav>
+  <nav class="topbar-side topbar-side--end" id="topbar-scripts" aria-label="Scripts"></nav>
+</header>
+
+<!-- Terminal tabs: each is its own PTY. The folder panel below always shows
+     whichever tab is active. -->
+<nav class="tabbar" id="tabbar" role="tablist" aria-label="Shells"></nav>
+
+<!-- Status line: the shell's real position and what currently owns the terminal -->
+<div class="statusline" id="statusline">
+  <ol class="crumbs" id="crumbs" aria-label="Current folder"></ol>
+  <div class="statusline-right">
+    <span class="proc" id="proc" title="What currently owns the terminal">
+      <i class="dot" id="proc-dot"></i><span id="proc-name">connecting</span>
+    </span>
+  </div>
+</div>
+
+<!-- Folder / favourites panel -->
+<section class="panel" id="panel">
+  <div class="panel-bar">
+    <div class="segmented" role="tablist" aria-label="Panel source">
+      <button role="tab" class="seg is-on" data-view="folders">Folders</button>
+      <button role="tab" class="seg" data-view="favorites">Favourites</button>
+    </div>
+    <div class="panel-bar-tools">
+      <button class="ghost" id="toggle-hidden" aria-pressed="false">
+        <span class="lbl-wide">Show all types</span><span class="lbl-narrow">All</span>
+        <span class="count" id="hidden-count"></span>
+      </button>
+      <button class="ghost" id="save-favorite" title="Save this folder">&#9733;</button>
+      <button class="ghost" id="collapse-panel" title="Collapse panel">&#9650;</button>
+    </div>
+  </div>
+  <div class="grid" id="entries" tabindex="0"></div>
+</section>
+
+<!-- Terminal: one host div per tab, injected by app.js. Only the active
+     tab's host is visible; the rest stay mounted so their PTY output keeps
+     landing in scrollback while you are looking elsewhere. -->
+<main class="terminal-wrap" id="terminal-wrap"></main>
+<!-- Keys a phone keyboard lacks. Shown on touch screens only; built by app.js. -->
+<div class="keybar" id="keybar" role="toolbar" aria-label="Terminal keys"></div>
+
+<!-- Overlays -->
+<div class="menu" id="menu" hidden></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="scrim" id="scrim" hidden></div>
+<input type="file" id="file-input" hidden>
+
+<script type="module" src="/static/js/app.js"></script>
+</body>
+</html>
