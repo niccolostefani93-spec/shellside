@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import fcntl
+import hashlib
 import os
 import pty
 import signal
@@ -32,7 +33,8 @@ from collections import deque
 from pathlib import Path
 from typing import Callable
 
-from . import assist
+from . import assist, datahome
+from .config import DATA_HOME
 
 # Control characters we write into stdin.
 CTRL_U = b"\x15"  # readline: kill whole line
@@ -45,9 +47,24 @@ CTRL_U = b"\x15"  # readline: kill whole line
 #
 # Shellside uses its own tmux server (-L shellside) and its own config file,
 # so the user's tmux sessions and ~/.tmux.conf are never touched.
+#
+# One tmux server per DATA_HOME: a second Shellside of the same user (a test
+# install with its own SHELLSIDE_HOME) must not list, and attach to, the
+# shells of the first. The default DATA_HOME keeps the plain name, so shells
+# started before this rule still reattach.
 
 TMUX_CONF = Path(__file__).resolve().parent / "shell" / "tmux.conf"
 TMUX_PREFIX = "shellside-"
+
+
+def tmux_socket_name(data_home: Path) -> str:
+    if data_home.absolute() == datahome.default_data_home().absolute():
+        return "shellside"
+    digest = hashlib.sha256(str(data_home.absolute()).encode()).hexdigest()[:10]
+    return f"shellside-{digest}"
+
+
+TMUX_SOCKET = tmux_socket_name(DATA_HOME)
 
 
 def tmux_available() -> bool:
@@ -57,7 +74,7 @@ def tmux_available() -> bool:
 def _tmux(*args: str, timeout: float = 3.0) -> subprocess.CompletedProcess:
     env = dict(os.environ)
     env.pop("TMUX", None)   # Shellside itself started from inside tmux
-    return subprocess.run(["tmux", "-L", "shellside", "-f", str(TMUX_CONF), *args],
+    return subprocess.run(["tmux", "-L", TMUX_SOCKET, "-f", str(TMUX_CONF), *args],
                           capture_output=True, text=True, timeout=timeout, env=env)
 
 
@@ -156,7 +173,7 @@ class PtySession:
             # -A: attach when the session already exists (Shellside restarted
             # and the tab reconnects), create it otherwise.
             extra = [arg for key, value in shell_env.items() for arg in ("-e", f"{key}={value}")]
-            argv = ["tmux", "-L", "shellside", "-f", str(TMUX_CONF),
+            argv = ["tmux", "-L", TMUX_SOCKET, "-f", str(TMUX_CONF),
                     "new-session", "-A", "-s", tmux_name(self.id), "-c", start_dir,
                     *extra, *argv]
 

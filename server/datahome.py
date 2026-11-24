@@ -34,6 +34,11 @@ def resolve_data_home() -> Path:
     explicit = os.environ.get("SHELLSIDE_HOME", "").strip()
     if explicit:
         return Path(explicit).expanduser().absolute()
+    return default_data_home()
+
+
+def default_data_home() -> Path:
+    """Where DATA_HOME is when SHELLSIDE_HOME is not set."""
     # The XDG spec says a relative XDG_CONFIG_HOME is invalid and must be
     # ignored, rather than resolved against whatever the cwd happens to be.
     xdg = os.environ.get("XDG_CONFIG_HOME", "").strip()

@@ -563,3 +563,16 @@ def test_file_icons_are_validated():
     assert len(out["groups"][0]["icon"]) <= 8
     with pytest.raises(SettingsError):
         normalize_file_icons({"groups": [{"name": "", "icon": "x", "extensions": [".a"]}]})
+
+
+def test_each_data_home_gets_its_own_tmux_server(monkeypatch, tmp_path):
+    from server import pty_session
+
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    default = pty_session.datahome.default_data_home()
+    assert pty_session.tmux_socket_name(default) == "shellside"
+    other = pty_session.tmux_socket_name(tmp_path / "a")
+    assert other.startswith("shellside-") and other != "shellside"
+    assert other != pty_session.tmux_socket_name(tmp_path / "b")
+    # The test run's own DATA_HOME never shares the real install's shells.
+    assert pty_session.TMUX_SOCKET != "shellside"
