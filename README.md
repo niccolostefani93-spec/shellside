@@ -14,12 +14,23 @@ of the folder you are in.
 ## What you can do with it
 
 - **Move around without typing `cd` and `ls`.** The bar at the top shows where
-  you are and the files around you. Click a folder to go in, click a part of the
-  path to go back. Type `cd` in the terminal and the panel follows by itself.
+  you are and the files around you. Click a folder and Shellside runs the `cd`
+  in your terminal for you; click a part of the path to go back. It works the
+  other way too: type `cd` in the terminal and the panel follows by itself.
   Star the folders you use most and find them under **Favourites**.
+
+  ![Click a folder icon in the panel and the shell runs the cd by itself; click a part of the path to go back](docs/folder-navigation.gif)
+
 - **Move files with drag and drop.** Drag a file from the panel onto your
   desktop to download it. Drop files from your computer onto the panel or the
   terminal to upload them into the folder you are in. No `scp`, no second program.
+
+  ![A picture dragged from a Windows folder into Shellside lands on the Linux server; a file dragged out of Shellside lands in the Windows folder](docs/drag-and-drop.gif)
+
+  *Two different machines: on the left, Shellside in a browser on a Windows PC,
+  showing a folder on the Linux server; on the right, a folder on the Windows PC
+  itself. Files go both ways with a drag.*
+
 - **See photos, videos and music on a machine with no screen.** Click an image,
   a video, an audio file or a PDF and it opens in a new browser tab.
 - **Use it from your phone.** Sit on the sofa and work on the server. The phone

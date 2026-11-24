@@ -302,15 +302,22 @@ button { cursor: pointer; }
   font-size: 13px; line-height: 1;
 }
 .entry .label {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The meta (a size, or a favourite's path) is hidden until hover but still
+   takes room, so it gives way first: the name keeps its width. */
 .entry .meta {
   margin-left: auto;
   color: var(--ink-faint);
   font-size: 11px;
-  flex: 0 0 auto;
+  flex: 0 100 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   opacity: 0;
   transition: opacity var(--speed);
 }
