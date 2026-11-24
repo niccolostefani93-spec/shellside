@@ -17,9 +17,7 @@ terminal: it's the same panel that's already open next to the shell.
 Built for the machine in the corner that has no monitor, and for administering it
 from a phone.
 
-<!-- TODO: a 10-second GIF here (docs/demo.gif). Suggested take: cd into a
-     folder from the terminal, watch the panel follow; right-click a file,
-     pick Remove, press Enter, watch it disappear from the panel. -->
+![cd in the terminal and the folder panel follows; right-click a file, Remove, and it is gone; click a folder in the path bar and the shell cds there](docs/demo.gif)
 
 ---
 
@@ -161,6 +159,8 @@ itself holds the foreground group first.
 
 **Sessions outlive their websocket.** A phone that drops its connection
 reconnects to the same shell and gets its scrollback replayed.
+
+<p align="center"><img src="docs/phone.png" width="300" alt="Shellside on a phone: the folder panel above the terminal, and a row of keys a phone keyboard lacks (Esc, Tab, Ctrl, Alt, arrows)"></p>
 
 **Tabs are real, separate shells, not a visual trick.** Each one is its own PTY
 with its own working directory. The folder panel always shows whichever tab is
