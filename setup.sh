@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-# Build the virtualenv and install everything. Safe to re-run.
+# Install Shellside: build the virtualenv, then run the guided setup.
+# Safe to re-run.
 #
 #     ./setup.sh                 # use the default python3
 #     ./setup.sh python3.13      # use a specific interpreter
+#     ./setup.sh --rebuild       # throw the virtualenv away and build it again
+#
+# A virtualenv that already works is kept; a broken or missing one is rebuilt.
 #
 # pip is upgraded inside the fresh virtualenv before anything else is
 # installed. An old pip is the usual reason a package lands half-written —
@@ -12,8 +16,60 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-PY="${1:-python3}"
+REBUILD=0
+PY="python3"
+for arg in "$@"; do
+    case "$arg" in
+        --rebuild) REBUILD=1 ;;
+        -*) echo "  Unknown option: $arg" >&2; exit 2 ;;
+        *) PY="$arg" ;;
+    esac
+done
 VENV=".venv"
+
+# Importing is the only proof that counts.
+verify() {
+    "$VENV/bin/python" - <<'CHECK'
+import importlib, sys
+
+failures = []
+for module in ("fastapi", "uvicorn", "python_multipart", "httpx",
+               "anyio._backends._asyncio", "starlette.staticfiles"):
+    try:
+        importlib.import_module(module)
+    except Exception as exc:
+        failures.append(f"    {module} -> {type(exc).__name__}: {exc}")
+
+if failures:
+    print("  Some packages did not install correctly:")
+    print("\n".join(failures))
+    sys.exit(1)
+print("  All dependencies import cleanly.")
+CHECK
+}
+
+# Run the guided setup only with a person at the keyboard. run.py's own
+# auto-setup (a systemd start with broken packages) sets SHELLSIDE_NO_WIZARD.
+wizard() {
+    if [ -z "${SHELLSIDE_NO_WIZARD:-}" ] && [ -t 0 ] && [ -t 1 ]; then
+        exec "$VENV/bin/python" run.py setup
+    fi
+    cat <<EOF2
+
+  Installed. Configure it with:
+
+      ./shellside setup
+
+EOF2
+    exit 0
+}
+
+if [ "$REBUILD" = 0 ] && [ -x "$VENV/bin/python" ] && \
+   "$VENV/bin/python" -m pip install --quiet --no-cache-dir -r requirements.txt \
+       >/dev/null 2>&1 && verify >/dev/null 2>&1; then
+    echo "  The existing $VENV works, keeping it."
+    wizard
+fi
 
 if ! command -v "$PY" >/dev/null 2>&1; then
     echo "  '$PY' is not installed on this machine." >&2
@@ -46,36 +102,6 @@ echo "  Upgrading pip inside the virtualenv"
 echo "  Installing dependencies"
 "$VENV/bin/python" -m pip install --quiet --no-cache-dir -r requirements.txt
 
-# Verify rather than assume: importing is the only proof that counts.
 echo "  Verifying the install"
-"$VENV/bin/python" - <<'CHECK'
-import importlib, sys
-
-failures = []
-for module in ("fastapi", "uvicorn", "multipart", "httpx",
-               "anyio._backends._asyncio", "starlette.staticfiles"):
-    try:
-        importlib.import_module(module)
-    except Exception as exc:
-        failures.append(f"    {module} -> {type(exc).__name__}: {exc}")
-
-if failures:
-    print("  Some packages did not install correctly:")
-    print("\n".join(failures))
-    sys.exit(1)
-print("  All dependencies import cleanly.")
-CHECK
-
-cat <<EOF
-
-  Done. Start it with:
-
-      $VENV/bin/python run.py
-
-  and open http://127.0.0.1:8022
-
-  To reach it from another device on your network instead:
-
-      $VENV/bin/python run.py --host 0.0.0.0
-
-EOF
+verify
+wizard

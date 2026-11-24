@@ -1,5 +1,5 @@
 fastapi>=0.110
 uvicorn[standard]>=0.27
-python-multipart>=0.0.9
+python-multipart>=0.0.13   # provides the python_multipart module name
 httpx>=0.27
 anyio>=4.6          # starlette's threadpool; must include _backends/_asyncio

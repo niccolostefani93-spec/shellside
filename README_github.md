@@ -33,8 +33,9 @@ tool, and it is also its threat model. Treat it like `sshd`, not like a web app.
 
 What it does about that:
 
-- **Binds `127.0.0.1` by default.** The LAN address does not answer until you
-  explicitly pass `--host 0.0.0.0`, and doing so prints a warning.
+- **Binds `127.0.0.1` by default.** The LAN address answers only after you choose
+  it in `./shellside setup`, and only while a password protects it: with no LAN
+  password (and no live setup password) it falls back to loopback at startup.
 - **One unconditional gate**, `server/gate.py`, in front of every HTTP route and
   every websocket, checked before the PTY or a directory listing is ever touched.
   It cannot be turned off by configuration.
@@ -69,25 +70,36 @@ What it does **not** do, and what you should assume:
 ## Quick start
 
 ```bash
-git clone https://github.com/<you>/shellside
+git clone https://github.com/niccolostefani93-spec/shellside
 cd shellside
 bash setup.sh
-.venv/bin/python run.py          # http://127.0.0.1:8022
 ```
 
-`setup.sh` builds the virtualenv, upgrades pip *inside it* before installing
-anything, then verifies each dependency actually imports. Pass an interpreter to
-pick one: `bash setup.sh python3.13`.
+`setup.sh` builds the virtualenv (upgrading pip *inside it* first, then checking
+that every dependency really imports) and starts a short guided setup:
 
-To reach it from another device, put a tunnel in front of loopback rather than
-opening the port:
+1. **Who can open it:** only this machine, or every device on your local network.
+2. **Port:** 8022 unless you pick another.
+3. **Start at boot:** installs a systemd *user* service, no sudo needed.
+
+If you chose the local network, it prints the address to open from your phone or
+laptop and a **one-time setup password**. Sign in with it once (within 30
+minutes) and you are asked to choose your real password; the setup password then
+stops working. Nothing is ever exposed to the network without a password: if
+none is set, Shellside listens on `127.0.0.1` whatever the settings say.
+
+Afterwards:
 
 ```bash
-cloudflared tunnel --url http://127.0.0.1:8022
+./shellside                # start it by hand (if you skipped autostart)
+./shellside status         # what is configured, and whether it runs
+./shellside setup          # change the answers
+./shellside reset-auth     # forgot the password: back to the unconfigured state
 ```
 
-If you would rather have a LAN route, set a password in **Settings › Access**
-first, then `run.py --host 0.0.0.0`.
+Pass an interpreter to pick one: `bash setup.sh python3.13`. To reach it from
+outside your network, put a tunnel in front of loopback rather than opening the
+port (see *Deploying behind Cloudflare* in the full documentation).
 
 **Requirements:** Linux, Python 3.11+. The working-directory detection reads
 `/proc`, so macOS and BSD need a different implementation of one method

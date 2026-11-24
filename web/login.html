@@ -44,6 +44,24 @@
     </p>
   </div>
 
+  <form id="first-form" hidden>
+    <p style="color:var(--ink-dim);font-size:13px;margin-top:0;">
+      Setup password accepted. Now choose the LAN password you will use from
+      now on (at least {{MIN_PASSWORD}} characters). The setup password no
+      longer works.
+    </p>
+    <label class="field">
+      <span class="field-label">New LAN password</span>
+      <input class="input" id="first-password" type="password" autocomplete="new-password">
+    </label>
+    <label class="field">
+      <span class="field-label">Repeat it</span>
+      <input class="input" id="first-password-2" type="password" autocomplete="new-password">
+    </label>
+    <button class="btn btn--primary" type="submit" style="width:100%;" id="first-submit">Save and continue</button>
+    <div class="msg" id="first-msg"></div>
+  </form>
+
   <div class="tabs" id="tabs" hidden style="display:flex;gap:4px;margin-bottom:16px;">
     <button type="button" class="btn" id="tab-lan" style="flex:1;">LAN password</button>
     <button type="button" class="btn" id="tab-internet" style="flex:1;">Internet password</button>
@@ -77,8 +95,49 @@
   const isLoopback = {{IS_LOOPBACK}};
   const isLan = {{IS_LAN}};
   const internetActive = {{INTERNET_ACTIVE}};
+  const bootstrapActive = {{BOOTSTRAP_ACTIVE}};
+  const mustSetPassword = {{MUST_SET_PASSWORD}};
+  const minPassword = {{MIN_PASSWORD}};
 
-  if (!passwordSet) document.getElementById("no-password").hidden = false;
+  const firstForm = document.getElementById("first-form");
+  function showFirstPassword() {
+    document.getElementById("form").hidden = true;
+    document.getElementById("tabs").hidden = true;
+    document.getElementById("no-password").hidden = true;
+    document.getElementById("no-way-in").hidden = true;
+    document.getElementById("local-hint").hidden = true;
+    document.getElementById("internet-hint").hidden = true;
+    firstForm.hidden = false;
+    document.getElementById("first-password").focus();
+  }
+  firstForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const first = document.getElementById("first-password").value;
+    const second = document.getElementById("first-password-2").value;
+    const firstMsg = document.getElementById("first-msg");
+    if (first.length < minPassword) {
+      firstMsg.textContent = `At least ${minPassword} characters.`; return;
+    }
+    if (first !== second) { firstMsg.textContent = "The two passwords differ."; return; }
+    const button = document.getElementById("first-submit");
+    button.disabled = true;
+    try {
+      const response = await fetch("/auth/first-password", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: first }),
+      });
+      if (response.ok) { location.href = next; return; }
+      firstMsg.textContent = response.status === 403
+        ? "This step has expired. Run ./shellside setup on the server again."
+        : "Could not save the password.";
+    } catch {
+      firstMsg.textContent = "Could not reach the server.";
+    } finally { button.disabled = false; }
+  });
+
+  if (!passwordSet && !(bootstrapActive && isLan)) {
+    document.getElementById("no-password").hidden = false;
+  }
   if (isLoopback) document.getElementById("local-hint").hidden = false;
 
   const form = document.getElementById("form");
@@ -121,9 +180,11 @@
   } else {
     // Exactly one door is usable — no tabs needed, just label the single
     // field correctly and show its hint.
-    passwordLabel.textContent = mode === "internet" ? "Internet password" : "LAN password";
+    passwordLabel.textContent = mode === "internet" ? "Internet password"
+      : (!passwordSet && bootstrapActive ? "Setup password (printed by setup)" : "LAN password");
     document.getElementById("internet-hint").hidden = mode !== "internet";
   }
+  if (mustSetPassword) showFirstPassword();
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -150,6 +211,7 @@
       });
       const data = await response.json().catch(() => ({}));
       if (response.ok) {
+        if (data.must_set_password) { showFirstPassword(); return; }
         if (mode === "internet" && data.device_id) {
           const label = (window.prompt(
             "Access granted. Name this device (used to tell it apart later):",
@@ -169,6 +231,7 @@
       }
       const messages = {
         no_password: "No password is set yet — see above.",
+        // Same wording as a wrong LAN password: no hint about which kind failed.
         lan_only: "The LAN password only works from this network.",
         not_available: "The internet password has expired or run out of slots.",
         no_slots: "No enrollment slots left for the internet password.",

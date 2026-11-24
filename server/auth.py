@@ -195,6 +195,8 @@ def set_password(password: str) -> None:
     data = _auth()
     data["password_hash"] = _b64(digest)
     data["password_salt"] = _b64(salt)
+    for key in ("bootstrap_hash", "bootstrap_salt", "bootstrap_expires_at"):
+        data.pop(key, None)       # a real password retires the bootstrap one
     _save_auth(data)
     bump_session_epoch()          # changing the password drops other sessions
 
@@ -215,6 +217,98 @@ def clear_password() -> None:
     data.pop("password_salt", None)
     _save_auth(data)
     bump_session_epoch()
+
+
+# ------------------------------------------------------ bootstrap password
+#
+# The setup-time counterpart of the proof-of-locality token below. That token
+# only works from this machine; this one lets a *second device on the LAN*
+# finish first login on a headless box, where there is no local browser.
+#
+# Issued by `run.py setup` (server/wizard.py), printed once, stored only as a
+# hash. It is a fallback with a short life:
+#   - accepted only while no real LAN password exists; once one does, it is
+#     ignored and fails like any wrong password;
+#   - expires BOOTSTRAP_MINUTES after it was issued, used or not;
+#   - consumed by its first successful login, which can do nothing except
+#     choose the real password (see auth_routes.py's /auth/first-password);
+#   - LAN only: never through a tunnel or proxy, never as an internet password.
+
+BOOTSTRAP_MINUTES = 30
+BOOTSTRAP_ALPHABET = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+BOOTSTRAP_LENGTH = 8
+FIRST_PASSWORD_SECONDS = 15 * 60       # how long a bootstrap login may take
+                                       # to choose the real password
+MIN_PASSWORD_LENGTH = 8
+
+
+def _scrypt(password: str, salt: bytes) -> str:
+    return _b64(hashlib.scrypt(password.encode(), salt=salt,
+                               n=_SCRYPT_N, r=_SCRYPT_R, p=_SCRYPT_P, dklen=32))
+
+
+def issue_bootstrap_password(minutes: float = BOOTSTRAP_MINUTES) -> str | None:
+    """A new bootstrap password, or None when a real password already exists
+    (re-running setup must never weaken a configured install)."""
+    if password_is_set():
+        return None
+    password = "".join(secrets.choice(BOOTSTRAP_ALPHABET) for _ in range(BOOTSTRAP_LENGTH))
+    salt = secrets.token_bytes(16)
+    data = _auth()
+    data["bootstrap_hash"] = _scrypt(password, salt)
+    data["bootstrap_salt"] = _b64(salt)
+    data["bootstrap_expires_at"] = time.time() + minutes * 60
+    _save_auth(data)
+    return password
+
+
+def bootstrap_active() -> bool:
+    data = _auth()
+    return (bool(data.get("bootstrap_hash"))
+            and not data.get("password_hash")
+            and time.time() < float(data.get("bootstrap_expires_at", 0)))
+
+
+def bootstrap_expires_at() -> float:
+    return float(_auth().get("bootstrap_expires_at", 0)) if bootstrap_active() else 0.0
+
+
+def verify_bootstrap_password(password: str) -> bool:
+    if not bootstrap_active():
+        return False
+    data = _auth()
+    return hmac.compare_digest(
+        _scrypt(password, _unb64(data["bootstrap_salt"])), data["bootstrap_hash"])
+
+
+def clear_bootstrap_password() -> None:
+    data = _auth()
+    for key in ("bootstrap_hash", "bootstrap_salt", "bootstrap_expires_at"):
+        data.pop(key, None)
+    _save_auth(data)
+
+
+def reset_access() -> None:
+    """Back to the unconfigured state: no LAN password, no bootstrap password,
+    LAN-without-password off, every session signed out. Devices enrolled
+    through the internet password are left alone; revoke them in Settings."""
+    data = _auth()
+    for key in ("password_hash", "password_salt",
+                "bootstrap_hash", "bootstrap_salt", "bootstrap_expires_at"):
+        data.pop(key, None)
+    data["lan_open"] = False
+    _save_auth(data)
+    bump_session_epoch()
+
+
+def lan_exposure_allowed() -> bool:
+    """May the server listen on a non-loopback address?
+
+    Only when something protects it there, or the owner deliberately chose
+    not to (lan_open): a real LAN password, an unexpired bootstrap password,
+    or lan_open. run.py checks the same rule on auth.json directly, because
+    it must work before server/ is importable."""
+    return password_is_set() or bootstrap_active() or lan_open()
 
 
 # ------------------------------------------------------ internet password

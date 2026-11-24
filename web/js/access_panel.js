@@ -31,15 +31,18 @@ export function tabAccess(ctx) {
       if (!value) {
         const ok = await confirm({
           title: "Remove the LAN password?",
-          message: "An empty password does nothing by itself \u2014 lan_open below " +
-                    "must also be on for the LAN to be reachable without one.",
+          message: "This returns Shellside to its unconfigured state: other " +
+                    "devices are signed out, \u201cLAN without a password\u201d is " +
+                    "switched off, and from the next restart it listens on this " +
+                    "machine only. Run ./shellside setup to open it to the LAN again.",
           confirmLabel: "Remove it", danger: true,
         });
         if (!ok) return;
       }
       try {
         await api.accessSetPassword(value);
-        toast("Saved. Other signed-in devices were signed out.", "success");
+        toast(value ? "Saved. Other signed-in devices were signed out."
+                    : "Removed. Back to this machine only.", "success");
         passwordInput.value = "";
         render();
       } catch (error) { toast(error.message, "error"); }

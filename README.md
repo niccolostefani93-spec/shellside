@@ -7,8 +7,8 @@ all work, because nothing is being simulated. Layered on top is a clickable
 breadcrumb, a live folder panel, saved commands and context menus, all of which
 work by typing into that same shell.
 
-    bash setup.sh
-    .venv/bin/python run.py           # http://127.0.0.1:8022
+    bash setup.sh                     # installs, then asks three questions
+    ./shellside                       # start it, if you skipped autostart
 
 Use `bash setup.sh`, not `./setup.sh` — a downloaded archive does not always
 keep the executable bit, and `bash` runs the script either way. If you would
@@ -41,14 +41,12 @@ fail half way. `run.py` will only ever suggest an interpreter that is actually
 installed on your machine.
 
 By default the app listens on loopback only, so `127.0.0.1:8022` works and the
-machine's LAN address does not. That is deliberate — it hands out a root-capable
-shell, so the intended route in is the Cloudflare tunnel, even from home. To
-reach it from another device on your own network instead:
-
-    .venv/bin/python run.py --host 0.0.0.0
-
-and read the warning it prints. If it still will not connect from another
-machine, the firewall is next: `sudo ufw allow 8022/tcp`.
+machine's LAN address does not. `./shellside setup` opens it to your network: it
+prints the address and a one-time setup password, valid for 30 minutes, which
+lets one device sign in and choose the real password. With no password set,
+Shellside refuses to listen beyond loopback, whatever the settings or `--host`
+say. If it still will not connect from another machine, the firewall is next:
+`sudo ufw allow 8022/tcp`. Forgot the password? `./shellside reset-auth`.
 
 ---
 

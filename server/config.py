@@ -170,6 +170,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     # Changing it from Settings writes here, then asks the app to restart
     # (see /api/network/bind); nothing about the running process rebinds.
     "bind_host": "127.0.0.1",
+    # The port run.py listens on, read the same way (`run.py --port` wins).
+    "port": 8022,
 }
 
 _lock = threading.Lock()
@@ -307,6 +309,8 @@ def load_settings(force: bool = False) -> dict[str, Any]:
 
 def save_settings(patch: dict[str, Any]) -> dict[str, Any]:
     global _cache
+    if _cache is None:
+        load_settings()      # merge into what is on disk, never into bare defaults
     if "handlers" in patch:
         patch = dict(patch, handlers=normalize_handlers(patch["handlers"]))
     with _lock:

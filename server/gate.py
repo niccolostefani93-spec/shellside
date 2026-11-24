@@ -181,7 +181,9 @@ def _evaluate(scope) -> tuple[bool, str | None]:
         # device it came from. Older sessions issued before this existed
         # have no device_id — they fall through to the device-cookie check
         # below instead, which enforces the same thing directly.
-        if session.get("via") == "device":
+        if session.get("via") == "bootstrap":
+            pass        # can only choose the first password (auth_routes.py)
+        elif session.get("via") == "device":
             rec = devices.get(session.get("device_id", ""))
             if rec is not None and not rec.get("revoked"):
                 return True, None

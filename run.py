@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Shellside — supervisor.
 
-    python3 run.py                 # loopback only, reach it through the tunnel
-    python3 run.py --host 0.0.0.0  # also reachable on the LAN (see the warning)
+    ./shellside                    # start it (settings from ./shellside setup)
+    ./shellside setup              # guided setup: LAN or not, port, autostart
+    ./shellside reset-auth         # forgot the password: back to unconfigured
+    python3 run.py --host 0.0.0.0  # the same, by hand (needs a LAN password)
 
 This process is a supervisor, not the app. It runs the application as a child
 and stays alive across its restarts, because that is the only way an update can
@@ -378,8 +380,8 @@ def warn_about_exposure(host: str) -> None:
     make sense if server/ is what a bad update just broke.
     """
     if host in ("127.0.0.1", "localhost", "::1"):
-        print(f"{DIM}  Bound to loopback. Reachable through your tunnel, or "
-              f"from this machine \u2014 no password needed either way.{OFF}\n")
+        print(f"{DIM}  Listening on this machine only (or through an SSH tunnel). "
+              f"./shellside setup opens it to the LAN.{OFF}\n")
         return
 
     try:
@@ -401,13 +403,12 @@ def warn_about_exposure(host: str) -> None:
         print(f"{DIM}  Bound to {host}. The LAN password in Settings \u203a "
               f"Access is required for anyone not on this machine.{OFF}\n")
     else:
+        # Only reachable with a live setup password (see effective_host()).
         print(
-            f"\n{DIM}  Bound to {host}, and no LAN password is set yet, so "
-            "sign-in from the network\n"
-            "  will be refused until you set one. From this machine's own "
-            f"browser at 127.0.0.1,{OFF}\n"
-            f"{DIM}  open Settings \u203a Access and set a password before "
-            f"reaching for another device.{OFF}\n"
+            f"\n{DIM}  Bound to {host}. No LAN password yet: the setup password "
+            "printed by ./shellside setup\n"
+            "  works from one device on your network, once, and then asks for "
+            f"the real password.{OFF}\n"
         )
 
 
@@ -416,7 +417,7 @@ def warn_about_exposure(host: str) -> None:
 REQUIRED = {
     "fastapi": "fastapi",
     "uvicorn": "uvicorn[standard]",
-    "multipart": "python-multipart",
+    "python_multipart": "python-multipart",
     "httpx": "httpx",
     "anyio": "anyio",
 }
@@ -496,7 +497,8 @@ def _offer_auto_setup() -> bool:
             return False
 
     print()
-    result = subprocess.run(["bash", str(ROOT / "setup.sh"), sys.executable], cwd=str(ROOT))
+    result = subprocess.run(["bash", str(ROOT / "setup.sh"), "--rebuild", sys.executable],
+                            cwd=str(ROOT), env={**os.environ, "SHELLSIDE_NO_WIZARD": "1"})
     if result.returncode != 0:
         print(f"\n{RED}  Setup did not finish cleanly (exit {result.returncode}). "
               f"See the output above.{OFF}")
@@ -622,6 +624,66 @@ def run_app(host: str, port: int) -> int:
 
 
 SETTINGS_FILE = DATA_HOME / "settings.json"
+AUTH_FILE = DATA_HOME / "auth" / "auth.json"
+LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
+DEFAULT_PORT = 8022
+
+
+def _saved_settings() -> dict:
+    try:
+        data = json.loads(SETTINGS_FILE.read_text())
+        return data if isinstance(data, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def lan_exposure_allowed() -> bool:
+    """The same rule as server/auth.py's lan_exposure_allowed(), read from
+    auth.json directly for the same reason as everything else here.
+    tests/test_core.py checks that the two agree."""
+    try:
+        data = json.loads(AUTH_FILE.read_text())
+    except (OSError, json.JSONDecodeError):
+        data = {}
+    if not isinstance(data, dict):
+        return False
+    if data.get("password_hash") or data.get("lan_open"):
+        return True
+    try:
+        expires = float(data.get("bootstrap_expires_at", 0))
+    except (TypeError, ValueError):
+        expires = 0.0
+    return bool(data.get("bootstrap_hash")) and time.time() < expires
+
+
+_refused_hosts: set[str] = set()
+
+
+def effective_host(requested: str) -> str:
+    """Never listen beyond this machine while nothing protects it there.
+
+    Enforced here at every start, whatever settings.json or --host say: with
+    no LAN password, no live setup password and no deliberate lan_open, the
+    server binds to 127.0.0.1 and says so."""
+    if requested in LOOPBACK_HOSTS or lan_exposure_allowed():
+        return requested
+    if requested in _refused_hosts:      # resolved more than once per start
+        return "127.0.0.1"
+    _refused_hosts.add(requested)
+    print(f"\n{RED}  Not listening on {requested}: no LAN password is set.{OFF}\n"
+          f"{DIM}  Without one, anyone on your network would reach a shell here, so "
+          f"Shellside stays on\n  127.0.0.1. Run ./shellside setup to open it to the "
+          f"LAN with a setup password.{OFF}\n", flush=True)
+    return "127.0.0.1"
+
+
+def resolve_port(cli_port: int | None) -> int:
+    if cli_port is not None:
+        return cli_port
+    port = _saved_settings().get("port")
+    if isinstance(port, int) and 0 < port < 65536:
+        return port
+    return DEFAULT_PORT
 
 
 def resolve_host(cli_host: str | None) -> str:
@@ -638,15 +700,27 @@ def resolve_host(cli_host: str | None) -> str:
     installed, so nothing here can assume server/ is safely importable yet.
     """
     if cli_host is not None:
-        return cli_host
-    try:
-        data = json.loads(SETTINGS_FILE.read_text())
-        host = data.get("bind_host")
-        if isinstance(host, str) and host:
-            return host
-    except (OSError, json.JSONDecodeError):
-        pass
+        return effective_host(cli_host)
+    host = _saved_settings().get("bind_host")
+    if isinstance(host, str) and host:
+        return effective_host(host)
     return "127.0.0.1"
+
+
+COMMANDS = ("setup", "reset-auth", "status")
+
+
+def run_command(name: str, rest: list[str]) -> int:
+    """`run.py setup`, `run.py reset-auth`, `run.py status`: server/wizard.py.
+
+    Dependencies are checked first, the same as for a normal start, so a
+    missing package is explained here too instead of as a traceback."""
+    if "-h" not in rest and "--help" not in rest:
+        prepare_data_home()
+        if not preflight():
+            return 1
+    from server import wizard
+    return wizard.main([name, *rest])
 
 
 def main() -> int:
@@ -655,14 +729,26 @@ def main() -> int:
                         help="Overrides the saved bind_host (settings.json in "
                              "$SHELLSIDE_HOME, by default ~/.config/shellside) "
                              "for this run.")
-    parser.add_argument("--port", type=int, default=8022)
+    parser.add_argument("--port", type=int, default=None,
+                        help="Overrides the saved port (default 8022) for this run.")
     parser.add_argument("--no-supervisor", action="store_true",
                         help="Run the app in this process. Updates cannot be applied.")
     parser.add_argument("--auto-setup", action="store_true",
                         help="Install missing dependencies without asking. "
                              "For non-interactive starts (systemd, cron); "
                              "same effect as SHELLSIDE_AUTO_SETUP=1.")
+    # `kill`, `systemctl stop` with the default signal, a shutdown: stop the
+    # app child the same way Ctrl+C does, instead of dying and leaving it
+    # running on the port with nobody supervising it.
+    def _terminate(signum, frame):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, _terminate)
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+
+    if sys.argv[1:2] and sys.argv[1] in COMMANDS:
+        return run_command(sys.argv[1], sys.argv[2:])
     args = parser.parse_args()
+    args.port = resolve_port(args.port)
     argv = sys.argv[1:]
 
     # An update armed before a power cut is applied on the next start.
@@ -695,7 +781,7 @@ def main() -> int:
 def _run_supervised(args: argparse.Namespace, argv: list[str]) -> int:
     host = resolve_host(args.host)
     warn_about_exposure(host)
-    location = (f"http://127.0.0.1:{args.port}" if host in ("127.0.0.1", "localhost")
+    location = (f"http://127.0.0.1:{args.port}" if host in LOOPBACK_HOSTS
                 else f"http://{host}:{args.port}")
     print(f"{BANNER}  Shellside{OFF} {DIM}{location}{OFF}")
     if host == "0.0.0.0":
@@ -766,4 +852,7 @@ def _run_supervised(args: argparse.Namespace, argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)

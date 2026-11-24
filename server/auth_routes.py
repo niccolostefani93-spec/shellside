@@ -91,6 +91,11 @@ def _device_meta(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _relayed(request: Request) -> bool:
+    from .gate import PROXY_HEADERS
+    return any(name in PROXY_HEADERS for name, _ in request.scope.get("headers", ()))
+
+
 def _is_loopback(request: Request) -> bool:
     # Same rule as the gate: loopback that is not a relayed request (tunnel,
     # reverse proxy) and not a DNS-rebound website. See gate._really_local().
@@ -145,6 +150,13 @@ def _is_lan_peer(ip: str) -> bool:
 async def login_page(request: Request) -> HTMLResponse:
     html = (WEB_DIR / "login.html").read_text()
     html = html.replace("{{PASSWORD_SET}}", "true" if auth.password_is_set() else "false")
+    html = html.replace("{{BOOTSTRAP_ACTIVE}}",
+                        "true" if auth.bootstrap_active() and not _relayed(request) else "false")
+    session = auth.read_session(request.cookies)
+    html = html.replace("{{MUST_SET_PASSWORD}}",
+                        "true" if session and session.get("via") == "bootstrap"
+                        and not auth.password_is_set() else "false")
+    html = html.replace("{{MIN_PASSWORD}}", str(auth.MIN_PASSWORD_LENGTH))
     html = html.replace("{{IS_LOOPBACK}}", "true" if _is_loopback(request) else "false")
     # The LAN password only means something as proof of being on this
     # network — see _is_lan_peer's docstring. Loopback (same box, or a
@@ -172,7 +184,8 @@ async def login_submit(request: Request) -> JSONResponse:
                             status_code=429)
     auth.register_attempt()
 
-    if not auth.password_is_set():
+    bootstrap = not auth.password_is_set() and auth.bootstrap_active()
+    if not auth.password_is_set() and not bootstrap:
         return JSONResponse({"error": "no_password"}, status_code=403)
 
     # The LAN password proves "you're on this network" — a network-origin
@@ -186,11 +199,49 @@ async def login_submit(request: Request) -> JSONResponse:
 
     body = await request.json()
     password = str(body.get("password", ""))
+
+    if bootstrap:
+        # The setup password (see auth.py). Never through a proxy or tunnel,
+        # even one that somehow presents a LAN address.
+        if _relayed(request) or not auth.verify_bootstrap_password(password):
+            auth.register_failure(ip)
+            return JSONResponse({"error": "bad_credentials"}, status_code=401)
+        auth.register_success(ip)
+        auth.clear_bootstrap_password()            # single use
+        response = JSONResponse({"ok": True, "must_set_password": True})
+        # A session that opens nothing: gate.py does not trust via=bootstrap.
+        # Its only use is /auth/first-password below.
+        auth.issue_cookie(response, via="bootstrap",
+                          secure=request.url.scheme == "https")
+        return response
+
     if not auth.verify_password(password):
         auth.register_failure(ip)
         return JSONResponse({"error": "bad_credentials"}, status_code=401)
 
     auth.register_success(ip)
+    response = JSONResponse({"ok": True})
+    auth.issue_cookie(response, via="password", secure=request.url.scheme == "https")
+    return response
+
+
+@router.post("/auth/first-password")
+async def first_password(request: Request) -> JSONResponse:
+    """The forced step after a bootstrap login: choose the real LAN password.
+
+    Accepted only from a bootstrap session that is still fresh, and only
+    while no real password exists, so it can never replace one."""
+    session = auth.read_session(request.cookies)
+    if (session is None or session.get("via") != "bootstrap"
+            or time.time() - float(session.get("iat", 0)) > auth.FIRST_PASSWORD_SECONDS
+            or auth.password_is_set() or _relayed(request)):
+        return JSONResponse({"error": "not_allowed"}, status_code=403)
+    body = await request.json()
+    password = str(body.get("password", ""))
+    if len(password) < auth.MIN_PASSWORD_LENGTH:
+        return JSONResponse({"error": "too_short", "min": auth.MIN_PASSWORD_LENGTH},
+                            status_code=400)
+    auth.set_password(password)                    # bumps the epoch
     response = JSONResponse({"ok": True})
     auth.issue_cookie(response, via="password", secure=request.url.scheme == "https")
     return response
@@ -391,8 +442,14 @@ async def access_devices_rename(request: Request, payload: dict[str, Any]) -> di
 async def access_set_password(request: Request, payload: dict[str, Any]) -> dict:
     password = str(payload.get("password", ""))
     if not password:
-        auth.clear_password()
-        return {"ok": True, "password_set": False}
+        # No password left: back to the unconfigured state (auth.reset_access)
+        # and loopback only from the next start. The running server is
+        # already closed to the LAN: no password means no LAN sign-in, and
+        # the epoch bump signs every LAN session out.
+        auth.reset_access()
+        save_settings({"bind_host": "127.0.0.1"})
+        return {"ok": True, "password_set": False, "lan_open": False,
+                "bind_host_saved": "127.0.0.1"}
     auth.set_password(password)
     return {"ok": True, "password_set": True}
 
