@@ -180,6 +180,10 @@ def unit_path() -> Path:
 def unit_text() -> str:
     venv_python = ROOT / ".venv" / "bin" / "python"
     python = venv_python if venv_python.exists() else Path(sys.executable)
+    # A setup run with SHELLSIDE_HOME (a test install, a second instance)
+    # must start the service on that same data folder, not the default one.
+    explicit = os.environ.get("SHELLSIDE_HOME", "").strip()
+    home_line = f'Environment="SHELLSIDE_HOME={DATA_HOME}"\n' if explicit else ""
     return f"""[Unit]
 Description=Shellside (web terminal and file manager)
 After=network-online.target
@@ -190,7 +194,7 @@ Type=simple
 WorkingDirectory={ROOT}
 ExecStart="{python}" "{ROOT / 'run.py'}" --auto-setup
 Environment=PYTHONUNBUFFERED=1
-Restart=on-failure
+{home_line}Restart=on-failure
 RestartSec=5
 # The supervisor stops cleanly on SIGINT (see run.py).
 KillSignal=SIGINT
