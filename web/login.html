@@ -31,7 +31,7 @@
     <p style="color:var(--ink-dim);font-size:13px;margin-top:0;">
       No LAN password is set yet. Sign in from the machine itself first —
       open <code style="color:var(--cyan);">127.0.0.1</code> directly, or use
-      the link printed in the terminal that started this app — then set a
+      the link from <code style="color:var(--cyan);">./shellside link</code> — then set a
       password in <b>Settings &rsaquo; Access</b>.
     </p>
   </div>
@@ -77,8 +77,8 @@
   </form>
 
   <div class="hint" id="local-hint" hidden>
-    Signed in from this machine? The link in the terminal that started the app
-    signs you in without a password.
+    On this machine? Run <code>./shellside link</code> in a terminal: the link it
+    prints signs you in without a password.
   </div>
   <div class="hint" id="internet-hint" hidden>
     A one-time password for enrolling a new device. Once it's accepted, this

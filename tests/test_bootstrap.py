@@ -169,3 +169,28 @@ def test_first_password_needs_a_bootstrap_session(auth_dir):
     r = web.post("/auth/first-password", json={"password": "my-real-password"},
                  headers={"Origin": "http://192.168.1.10:8022"})
     assert r.status_code == 403 and not auth.password_is_set()
+
+
+def test_setup_tunnel_question_sets_tunnel_mode(auth_dir, monkeypatch):
+    from server import wizard
+    monkeypatch.setattr(wizard, "systemd_present", lambda: False)
+    monkeypatch.setattr(wizard, "save_settings", lambda patch: patch)
+    monkeypatch.setattr(wizard, "port_in_use", lambda port: False)
+    base = ["--local", "--port", "8095", "--no-autostart", "--yes"]
+    assert wizard.setup([*base, "--tunnel"]) == 0 and auth.tunnel_mode()
+    assert wizard.setup([*base, "--no-tunnel"]) == 0 and not auth.tunnel_mode()
+
+    # an active internet password keeps tunnel mode on whatever the answer
+    auth.set_internet_password("internet-pass", slots=1, days=1)
+    assert auth.tunnel_mode()
+    wizard.setup([*base, "--no-tunnel"])
+    assert auth.tunnel_mode()
+
+
+def test_local_token_not_printed_without_a_terminal(auth_dir, capsys):
+    import asyncio
+    from server import main
+    asyncio.run(main._rotate_local_token())          # capsys: not a TTY
+    out = capsys.readouterr().out
+    assert auth.local_token() and auth.local_token() not in out
+    assert "./shellside link" in out

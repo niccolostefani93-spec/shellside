@@ -41,9 +41,16 @@ async def _rotate_local_token() -> None:
     """
     token = auth.new_local_token()
     port = os.environ.get("SHELLSIDE_PORT", "8022")
-    print(f"\n  \033[38;5;179mShellside {VERSION}\033[0m is up. Signed out? This link "
-          f"signs you back in from this machine, no password:")
-    print(f"      http://127.0.0.1:{port}/auth/local?token={token}\n")
+    import sys
+    if sys.stdout.isatty():
+        print(f"\n  \033[38;5;179mShellside {VERSION}\033[0m is up. Signed out? This link "
+              f"signs you back in from this machine, no password:")
+        print(f"      http://127.0.0.1:{port}/auth/local?token={token}\n", flush=True)
+    else:
+        # A service: stdout goes to the journal, and a secret has no place in
+        # a log. The owner reads the link with ./shellside link instead.
+        print(f"Shellside {VERSION} is up on port {port}. "
+              f"Sign-in link for this machine: ./shellside link", flush=True)
 
 
 @app.on_event("startup")

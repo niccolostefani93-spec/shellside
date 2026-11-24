@@ -4,6 +4,7 @@
     ./shellside                    # start it (settings from ./shellside setup)
     ./shellside setup              # guided setup: LAN or not, port, autostart
     ./shellside reset-auth         # forgot the password: back to unconfigured
+    ./shellside link               # sign-in link for a browser on this machine
     python3 run.py --host 0.0.0.0  # the same, by hand (needs a LAN password)
 
 This process is a supervisor, not the app. It runs the application as a child
@@ -707,7 +708,7 @@ def resolve_host(cli_host: str | None) -> str:
     return "127.0.0.1"
 
 
-COMMANDS = ("setup", "reset-auth", "status")
+COMMANDS = ("setup", "reset-auth", "status", "link")
 
 
 def run_command(name: str, rest: list[str]) -> int:

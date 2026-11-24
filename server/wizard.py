@@ -261,6 +261,10 @@ def _arguments(argv: list[str]) -> argparse.Namespace:
     start = parser.add_mutually_exclusive_group()
     start.add_argument("--autostart", action="store_true", help="start at boot")
     start.add_argument("--no-autostart", action="store_true", help="do not start at boot")
+    tunnel = parser.add_mutually_exclusive_group()
+    tunnel.add_argument("--tunnel", action="store_true",
+                        help="reached from the internet through a tunnel or proxy")
+    tunnel.add_argument("--no-tunnel", action="store_true", help="no tunnel or proxy")
     parser.add_argument("--yes", "-y", action="store_true",
                         help="take the default for anything not given, ask nothing")
     return parser.parse_args(argv)
@@ -317,12 +321,36 @@ def setup(argv: list[str]) -> int:
         say()
     else:
         autostart = autostart_enabled()
+    # 4. Tunnel
+    if args.tunnel or args.no_tunnel:
+        tunnel = args.tunnel
+    elif interactive:
+        say("  4. Will you reach it from the internet through a tunnel or reverse",
+            BOLD)
+        say("     proxy on this machine (cloudflared, ngrok, nginx, socat...)?", BOLD)
+        say("     Such a tunnel connects from 127.0.0.1, so Shellside then stops", DIM)
+        say("     trusting 127.0.0.1 by itself: on this machine too you sign in once,", DIM)
+        say("     with the link from ./shellside link.", DIM)
+        tunnel = ask_yes_no("Tunnel or proxy?", auth.tunnel_mode())
+        say()
+    else:
+        tunnel = auth.tunnel_mode()
+
     if autostart and not can_autostart:
         say("  systemd user services are not available here, so autostart is "
             "skipped. Start it by hand with ./shellside", RED)
         autostart = False
 
     save_settings({"bind_host": LAN if lan else LOOPBACK, "port": port})
+
+    if tunnel:
+        auth.set_tunnel_mode(True)
+    elif auth.internet_password_active():
+        if auth.tunnel_mode():
+            say("  Tunnel mode stays on: an internet password is active "
+                "(Settings \u203a Access).", DIM)
+    else:
+        auth.set_tunnel_mode(False)
 
     setup_password = None
     if lan and not auth.password_is_set() and not auth.lan_open():
@@ -376,6 +404,13 @@ def _summary(lan: bool, port: int, setup_password: str | None) -> None:
         say(f"      ssh -L {port}:127.0.0.1:{port} {user}@{host}")
         say(f"      then open http://127.0.0.1:{port} there")
     say()
+
+    if auth.tunnel_mode():
+        say("  Tunnel mode is on: 127.0.0.1 is not trusted by itself. To sign in "
+            "from", DIM)
+        say("  a browser on this machine, open the link printed by: "
+            "./shellside link", DIM)
+        say()
 
     if lan:
         if setup_password:
@@ -451,6 +486,7 @@ def status(argv: list[str]) -> int:
         say(f"  Setup pass.  active until {expires}")
     if auth.lan_open():
         say("  LAN open     yes: no password asked on the LAN", RED)
+    say(f"  Tunnel mode  {'on: 127.0.0.1 must sign in too' if auth.tunnel_mode() else 'off: 127.0.0.1 is trusted'}")
     if systemd_present():
         say(f"  Autostart    {'on' if autostart_enabled() else 'off'}"
             + (f", service {'running' if service_active() else 'stopped'}"
@@ -460,7 +496,33 @@ def status(argv: list[str]) -> int:
     return 0
 
 
-COMMANDS = {"setup": setup, "reset-auth": reset_auth, "status": status}
+def link(argv: list[str]) -> int:
+    """The proof-of-locality link (server/auth.py), read from this user's
+    own files: being able to run this is the proof. Kept out of the logs on
+    purpose, so this is the way to get it when Shellside runs as a service."""
+    parser = argparse.ArgumentParser(
+        prog="shellside link",
+        description="Print the link that signs in a browser on this machine.")
+    parser.add_argument("--open", action="store_true", help="also open it in the browser")
+    args = parser.parse_args(argv)
+    port = int(load_settings().get("port") or 8022)
+    token = auth.local_token()
+    if not port_in_use(port) or not token:
+        say(f"  Shellside is not running on port {port}. Start it first.", RED)
+        return 1
+    url = f"http://127.0.0.1:{port}/auth/local?token={token}"
+    say()
+    say("  Open this in a browser on this machine (it only works from here):", DIM)
+    say(f"      {url}")
+    say("  It changes every time Shellside restarts.", DIM)
+    say()
+    if args.open:
+        import webbrowser
+        webbrowser.open(url)
+    return 0
+
+
+COMMANDS = {"setup": setup, "reset-auth": reset_auth, "status": status, "link": link}
 
 
 def main(argv: list[str]) -> int:

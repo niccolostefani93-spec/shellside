@@ -45,7 +45,8 @@ What it does about that:
 - **A LAN password**, scrypt-hashed, set from the machine itself. Binding wide
   with no password set denies everyone except the local machine rather than
   quietly staying open. Per-address throttling and lockout are configurable.
-- **A recovery link** printed at every boot, valid from loopback only, so
+- **A recovery link**, new at every boot, valid from this machine only
+  (`./shellside link` prints it; it never goes into the logs), so
   physical access to the machine always gets you back in.
 - Previewed `.html` and `.svg` are served with `Content-Security-Policy: sandbox`,
   or a previewed file could run script on the origin that owns your shell.
@@ -76,7 +77,7 @@ bash setup.sh
 ```
 
 `setup.sh` builds the virtualenv (upgrading pip *inside it* first, then checking
-that every dependency really imports) and starts a short guided setup:
+that every dependency really imports) and starts a short guided setup (three questions, plus one about tunnels):
 
 1. **Who can open it:** only this machine, or every device on your local network.
 2. **Port:** 8022 unless you pick another.
@@ -95,7 +96,18 @@ Afterwards:
 ./shellside status         # what is configured, and whether it runs
 ./shellside setup          # change the answers
 ./shellside reset-auth     # forgot the password: back to the unconfigured state
+./shellside link           # sign-in link for a browser on this machine
 ```
+
+These run in a shell on the machine itself (at the keyboard, over SSH, or in a
+Shellside terminal you are already signed in to). Nothing on the web side can
+trigger them: being able to run them already means having that user's access.
+
+The fourth setup question asks whether you will reach Shellside from the
+internet through a tunnel or reverse proxy. Such a tunnel connects from
+`127.0.0.1`, so answering yes switches on *tunnel mode*: requests from
+`127.0.0.1` are no longer trusted by themselves, and a browser on the machine
+signs in once with the link from `./shellside link`.
 
 Pass an interpreter to pick one: `bash setup.sh python3.13`. To reach it from
 outside your network, put a tunnel in front of loopback rather than opening the
