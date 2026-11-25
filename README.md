@@ -270,16 +270,67 @@ shell (unless you keep shells in tmux, Settings › General).
 
 ## Comparison
 
-| | Shellwalk | ttyd / Wetty / gotty | code-server | filebrowser |
-|---|---|---|---|---|
-| Real PTY | yes | yes | yes | no |
-| File panel tracking the shell's cwd | yes | no | no | n/a |
-| Click-to-command menus | yes | no | partial | no |
-| Weight | one Python process | one process | heavy | light |
+There are good tools near this one. This is how they differ, as far as I know
+them; if a row is wrong, please open an issue.
+
+| | Shellwalk | ttyd / Wetty / GoTTY | code-server | Cockpit | SSH app + tmux |
+|---|---|---|---|---|---|
+| Real terminal on the server | yes | yes | yes | yes | yes |
+| Files of the current folder, following `cd` | yes | no | file tree, does not follow the terminal | separate Files page | no |
+| Drag and drop files in and out | yes | no (ttyd: trzsz/ZMODEM) | yes | with the Files page | through SFTP, separately |
+| Shells carry on across devices | yes | depends on setup | yes | no | yes |
+| Made for a phone | extra key row, long-press menus | basic | not really | partly | yes, it is a phone app |
+| What you install on the client | nothing, a browser | nothing | nothing | nothing | an app on every device |
+| Footprint on the server | about 95 MB RAM, Python | small | heavy | moderate | none beyond sshd |
 
 If you want a terminal in a tab, ttyd is smaller and older and you should use it.
-Shellwalk is for when you keep wanting the file manager and the shell to be the
-same thing.
+If you want a whole IDE, use code-server. If you want to administer the system
+(services, disks, updates) from a dashboard, use Cockpit. Shellwalk is for when
+you keep wanting the file manager and the shell to be the same thing, from any
+device, phone included.
+
+---
+
+## FAQ
+
+**Why not just use SSH?**
+If SSH from a laptop is all you need, keep using it. Shellwalk is for the rest:
+any browser instead of a client on every device, the files of the folder you
+are in next to the shell, drag and drop instead of `scp`, photos and videos that
+open in a tab, and the same shells on the PC and on the phone. SSH plus tmux
+gets you that last one too, with more setup on each device.
+
+**Can I put it on the internet?**
+Not directly. Put a tunnel (Cloudflare, Tailscale) or a reverse proxy you trust in
+front of it, and read [Read this before you install it](#read-this-before-you-install-it)
+first. It gives a shell to whoever gets past the login, and it has not been
+audited.
+
+**How heavy is it? Will it run on a Raspberry Pi?**
+About 95 MB of RAM on the author's machine, with shells open (the supervisor
+plus the server). The dependencies are FastAPI and uvicorn, with Python 3.11+.
+It should run on a Pi with a 64-bit OS, but nobody has tried yet: if you do,
+please say how it went in an issue.
+
+**Do my shells survive if I close the browser, or restart Shellwalk?**
+Closing the browser, a dropped connection or a phone going to sleep: yes, the
+shell keeps running and the tab comes back. A restart of Shellwalk: only with
+**Settings › General › Keep shells in tmux** turned on (needs `tmux`).
+
+**Is there a Docker image?**
+No. Shellwalk is meant to give you a shell on the machine itself. Inside a
+container you would get a shell in the container.
+
+**Does it work on Windows or macOS?**
+You can open it from any browser, on any system. The server side needs Linux,
+because it reads the shell's folder from `/proc`.
+
+**Do I need an AI model?**
+No. The command help (**Settings › Model**) is optional: until you connect a
+model it only shows a placeholder. A local model through Ollama keeps everything on your machine.
+
+**Was it written with AI?**
+Yes, with a lot of help from Claude. See [How it was made](#how-it-was-made).
 
 ---
 
