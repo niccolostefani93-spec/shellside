@@ -297,6 +297,23 @@ same thing.
 Full documentation, including the access-control design, tunnels, the update
 format and how to add your own actions, is in [docs/HANDBOOK.md](docs/HANDBOOK.md).
 
+## Roadmap
+
+What comes next, roughly in this order. Ideas and help are welcome: open an
+issue to discuss any of them before you start.
+
+1. **Guided remote access.** Reaching your machine from outside your home
+   network is the hardest part today: you set up the tunnel yourself. Setup will
+   walk you through Tailscale or a Cloudflare tunnel, step by step.
+2. **HTTPS on the local network.** Over plain LAN HTTP the password and the
+   session cookie cross the network in clear. Shellside will serve HTTPS on its
+   own, so the LAN is as safe as the tunnel.
+3. **Recipes.** Ready-made packs of commands and click actions (Docker, git,
+   Claude Code, media servers…) that you copy into `app/`. A good first
+   contribution: a recipe needs no change to Shellside itself.
+4. **Notifications.** A message on your phone (through ntfy or a webhook) when a
+   long command finishes, or when Claude Code is waiting for you.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
