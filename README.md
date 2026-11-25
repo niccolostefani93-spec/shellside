@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.png" alt="Shellside logo" width="280"></p>
+
 # Shellside
 
 **Use your headless Linux machine from any browser: a real terminal, with a file
