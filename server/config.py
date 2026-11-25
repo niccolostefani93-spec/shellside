@@ -23,7 +23,7 @@ from . import datahome
 # Printed at startup and returned by /api/bootstrap, so "which build is
 # actually serving me right now" is never a guess — a stale process still
 # holding the port looks identical to a new one otherwise.
-VERSION = "0.1.1"
+VERSION = "0.2.0"
 
 ROOT = Path(__file__).resolve().parent.parent
 SERVICES_DIR = ROOT / "services"
