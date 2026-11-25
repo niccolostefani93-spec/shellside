@@ -110,6 +110,10 @@ What it does **not** do, and what you should assume:
 
 ## Quick start
 
+On Debian or Ubuntu, install `git` and Python's venv module first (they are not
+there by default): `sudo apt install git python3-venv`. Add `tmux` too if you want
+shells that survive a restart of Shellwalk.
+
 ```bash
 git clone https://github.com/niccolostefani93-spec/shellwalk
 cd shellwalk
