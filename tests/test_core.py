@@ -576,3 +576,28 @@ def test_each_data_home_gets_its_own_tmux_server(monkeypatch, tmp_path):
     assert other != pty_session.tmux_socket_name(tmp_path / "b")
     # The test run's own DATA_HOME never shares the real install's shells.
     assert pty_session.TMUX_SOCKET != "shellside"
+
+
+def test_assistant_sees_only_the_previous_command():
+    from server.assist import last_command_block
+
+    screen = [
+        "nik@pc:~$ voglio cambiare cartella come faccio?",
+        "bash: voglio: command not found",
+        "  ▸ cd Documenti",
+        "nik@pc:~$ which server",
+        "nik@pc:~$ ls /nonexist",
+        "ls: cannot access '/nonexist': No such file or directory",
+        "nik@pc:~$ perché non funziona?",
+    ]
+    assert last_command_block(screen, "ls /nonexist") == screen[4:6]
+    # Earlier questions and answers never reach the model.
+    assert last_command_block(screen[:5], "which server") == ["nik@pc:~$ which server"]
+    # Not on screen (cleared, or from an earlier session's history): nothing.
+    assert last_command_block(screen, "make install") == []
+    assert last_command_block(screen, "") == []
+
+    long_output = ["nik@pc:~$ seq 100", *map(str, range(1, 101)), "nik@pc:~$ e ora?"]
+    block = last_command_block(long_output, "seq 100")
+    assert block[0] == "nik@pc:~$ seq 100" and block[-1] == "100"
+    assert len(block) == 32          # prompt line, "left out" note, last 30 lines

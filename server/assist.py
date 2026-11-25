@@ -131,46 +131,84 @@ def _python() -> str:
 
 # ------------------------------------------------------------------- prompt
 
-PROMPT_NOT_FOUND = """\
-A user typed this line in an interactive bash shell on Linux and bash answered \
-"command not found":
+# Most people ask about their computer, Linux or the terminal, but a question
+# on any other subject gets a plain answer rather than a refusal. The context
+# comes first and the user's line last: small local models answer what they
+# read last, and otherwise drift to the previous command instead. They also
+# follow short, concrete rules best, and slip into a second language unless
+# told plainly not to.
+_CASES = """\
+What to do, by what the line is:
+- A typo of a real command: give the corrected command, and say in a few words what was wrong.
+- A request in plain words for something to do on the computer: give the command or commands that do it.
+- A question about the computer, Linux or the terminal, including about the previous \
+command ("why did that fail?", "what did that do?"): answer it in one or two short \
+sentences, with a command when one helps.
+- A question on any other subject: answer it in at most three short sentences, with no commands.
+- If you cannot tell what was meant, say so in one sentence and suggest nothing.
+"""
 
-    {line}
-
-Current folder: {cwd}
-{context}
-If it is a typo of a real command, give the corrected command.
-If it is a request written in natural language, give the command or commands that do it.
-If you cannot tell what was meant, say so in one sentence and suggest nothing.
-
+_RULES = """\
 Rules:
-- At most 3 suggestions, each on its own line wrapped in pipes, like |mkdir cane|.
-- At most one short sentence of explanation, written in the same language as the user's line.
-- If a suggestion deletes, overwrites or formats anything, say so plainly in that sentence.
+- Answer the user's line and nothing else. Mention the previous command only when the \
+line asks about it.
+- Write everything in the language of the user's line. Never add a translation \
+or a sentence in another language.
+- At most 3 commands, each on its own line wrapped in pipes, like |du -sh * | sort -h|. \
+Only real commands that exist on Linux; never invent one. Nothing but a command goes \
+between pipes.
+- If a command deletes, overwrites or formats anything, say so plainly.
 - When the line refers to files ("these", "the ones I see", "the 7 screenshots"), use the \
-folder listing above: name the exact files, quoted, or a pattern that matches exactly \
+folder listing: name the exact files, quoted, or a pattern that matches exactly \
 those and nothing else. Never use rm -r on plain files.
+- Start straight with the answer. Never say which case it is, and never repeat \
+these instructions.
 - No markdown, no code fences, no headings.
 """
 
-PROMPT_ASK = """\
-A user in an interactive bash shell on Linux asks:
-
-    {line}
+_INTRO = """\
+You are the assistant built into Shellside, a terminal in the browser, on a Linux \
+computer. Most questions are about the computer, Linux or the terminal, but any \
+question is welcome.
 
 Current folder: {cwd}
 {context}
-Answer with the command or commands that do it.
-
-Rules:
-- At most 3 suggestions, each on its own line wrapped in pipes, like |du -sh * | sort -h|.
-- At most two short sentences of explanation, written in the same language as the question.
-- If a suggestion deletes, overwrites or formats anything, say so plainly.
-- When the question refers to files ("these", "the ones I see", "the 7 screenshots"), use the \
-folder listing above: name the exact files, quoted, or a pattern that matches exactly \
-those and nothing else. Never use rm -r on plain files.
-- No markdown, no code fences, no headings.
 """
+
+_PREVIOUS = """\
+Just before this line, the user ran this command; the terminal shows:
+
+{block}
+If the line says "it", "that", "the error", "doesn't work" or asks why something \
+failed, it means this command.
+
+"""
+
+_OUTRO = """
+Reply in the language of this line, with each command between pipes.
+"""
+
+PROMPT_NOT_FOUND = _INTRO + _CASES + "\n" + _RULES + "\n{previous}" + """\
+The user typed this line in bash. Its first word is not a command, so bash \
+could not run it. It is a mistyped command, or something written in plain words:
+
+    {line}
+""" + _OUTRO
+
+PROMPT_ASK = _INTRO + _CASES + "\n" + _RULES + "\n{previous}" + """\
+The user asks:
+
+    {line}
+""" + _OUTRO
+
+
+def build_prompt(mode: str, line: str, cwd: str, listing: str, block: list[str]) -> str:
+    previous = ""
+    if block:
+        previous = _PREVIOUS.format(block="\n".join(f"    {row}" for row in block) + "\n")
+    template = PROMPT_NOT_FOUND if mode == "not_found" else PROMPT_ASK
+    context = f"\n{listing}" if listing else ""
+    return template.format(line=line, cwd=cwd or "unknown", context=context, previous=previous)
 
 
 def parse_answer(text: str) -> list[dict[str, str]]:
@@ -220,12 +258,17 @@ def parse_answer(text: str) -> list[dict[str, str]]:
 # ------------------------------------------------------------------ context
 #
 # What the user sees in the browser and the model otherwise would not: the
-# folder panel's listing of the current folder, and the last lines of the
-# terminal. With them, "delete the 7 screenshots" or "fix the error above"
-# can be answered with real names instead of a guess.
+# folder panel's listing of the current folder, and the command run just
+# before this line, with its output. With them, "delete the 7 screenshots" or
+# "why did that fail?" can be answered with real names instead of a guess.
+#
+# Only that one command, not the whole screen: a small local model given
+# thirty lines of earlier questions and answers latches on to them and
+# answers those instead of the line in front of it.
 
 _LISTING_LIMIT = 150
 _OUTPUT_LINES = 30
+_SCREEN_LINES = 400
 
 def _ansi_pattern():
     import re
@@ -275,32 +318,65 @@ def _folder_listing(cwd: str) -> str:
             + "\n".join(lines) + "\n")
 
 
-def _recent_output(shell_id: str) -> str:
-    from .pty_session import registry
-    session = registry.get(shell_id)
+def _screen_lines(shell_id: str) -> list[str]:
+    """The terminal's recent lines as plain text, oldest first.
+
+    In tmux the bytes Shellside receives are tmux redrawing its window with
+    cursor moves, so the text is asked of tmux itself. Otherwise it is the
+    shell's own output, kept in the session's scrollback.
+    """
+    from . import pty_session
+    session = pty_session.registry.get(shell_id)
     if session is None:
-        return ""
-    raw = session.scrollback()[-16000:].decode("utf-8", errors="replace")
-    text = _ANSI.sub("", raw)
+        return []
+    text = ""
+    if session.tmux:
+        try:
+            result = pty_session._tmux("capture-pane", "-p", "-J", "-S", f"-{_SCREEN_LINES}",
+                                       "-t", f"={pty_session.tmux_name(shell_id)}:")
+            if result.returncode == 0:
+                text = result.stdout
+        except Exception:
+            text = ""
+    if not text:
+        raw = session.scrollback()[-64000:].decode("utf-8", errors="replace")
+        text = _ANSI.sub("", raw)
     lines = []
     for line in text.replace("\r\n", "\n").split("\n"):
         line = line.rsplit("\r", 1)[-1].rstrip()   # a \r redraws the line: keep what is left
         if line and "asking the model" not in line:
             lines.append(line)
-    # The last line is the request itself, already given above.
-    lines = lines[:-1][-_OUTPUT_LINES:]
-    if not lines:
-        return ""
-    return ("Last lines of the terminal:\n"
-            + "\n".join(f"    {line}" for line in lines) + "\n")
+    return lines
 
 
-def context_for(shell_id: str, cwd: str) -> str:
+def last_command_block(lines: list[str], previous: str) -> list[str]:
+    """The previous command's prompt line and its output, from the screen.
+
+    `lines` ends with the line being asked about. `previous` is the command
+    bash ran before it, from its history. The block starts at the last line
+    that ends with that command (its prompt line) and stops before the
+    current line. If the command is not on screen (the terminal was cleared,
+    or it came from an earlier session's history), there is no block.
+    """
+    previous = previous.strip().split("\n", 1)[0].strip()
+    lines = lines[:-1]               # the current line is given on its own
+    if not previous:
+        return []
+    for index in range(len(lines) - 1, -1, -1):
+        if lines[index].rstrip().endswith(previous):
+            output = lines[index + 1:]
+            if len(output) > _OUTPUT_LINES:
+                output = ["    … (earlier output left out)"] + output[-_OUTPUT_LINES:]
+            return [lines[index]] + output
+    return []
+
+
+def context_for(shell_id: str, cwd: str, previous: str = "") -> tuple[str, list[str]]:
+    """The folder listing and the previous command's block, or nothing when
+    the user turned sharing off."""
     if not load_settings().get("assist_share_context", True):
-        return ""
-    parts = [_folder_listing(cwd), _recent_output(shell_id)]
-    text = "\n".join(part for part in parts if part)
-    return f"\n{text}" if text else ""
+        return "", []
+    return _folder_listing(cwd), last_command_block(_screen_lines(shell_id), previous)
 
 
 # ----------------------------------------------------------------- handling
@@ -320,6 +396,7 @@ async def handle(payload: dict[str, Any], shell_id: str) -> dict[str, Any]:
     mode = payload.get("mode")
     line = str(payload.get("line", "")).strip()[:2000]
     cwd = str(payload.get("cwd", ""))[:1000]
+    previous = str(payload.get("previous", ""))[:2000]
     if mode not in ("not_found", "ask") or not line:
         return {"status": "error", "message": "Nothing to ask."}
 
@@ -342,9 +419,8 @@ async def handle(payload: dict[str, Any], shell_id: str) -> dict[str, Any]:
                     "pick one in Settings › Model, or turn suggestions off there."}
         return {"status": "error", "message": "No model is set up. Pick one in Settings › Model."}
 
-    template = PROMPT_NOT_FOUND if mode == "not_found" else PROMPT_ASK
-    prompt = template.format(line=line, cwd=cwd or "unknown",
-                             context=context_for(shell_id, cwd))
+    listing, block = context_for(shell_id, cwd, previous)
+    prompt = build_prompt(mode, line, cwd, listing, block)
     try:
         result = service.ask(prompt, "")
         if asyncio.iscoroutine(result):

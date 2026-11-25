@@ -27,11 +27,20 @@ __shellside_cnf_plain() {
     return 127
 }
 
+# The line run before the current one, so the assistant can be shown that
+# command and its output ("why did that fail?"). Run from inside the
+# handlers below, `fc -l -1` skips the line being handled when bash saved it
+# to history, and only then, so it is always the previous line.
+__shellside_prev() {
+    HISTTIMEFORMAT= builtin fc -ln -1 2>/dev/null
+}
+
 # Bash calls this only when the first word of a line is not a command.
 command_not_found_handle() {
     # Only for a person at a terminal: never for pipes, scripts or $(...).
     if [ -t 0 ] && [ -t 1 ] && [ -t 2 ]; then
-        "$SHELLSIDE_PYTHON" -I "$SHELLSIDE_ASSIST_CLIENT" not_found "$PWD" "$@"
+        SHELLSIDE_PREV_CMD=$(__shellside_prev) \
+            "$SHELLSIDE_PYTHON" -I "$SHELLSIDE_ASSIST_CLIENT" not_found "$PWD" "$@"
         case $? in
             0) return 127 ;;          # answered: still a failed command
             130) return 130 ;;        # Ctrl-C while waiting
@@ -47,5 +56,6 @@ command_not_found_handle() {
         echo "usage: , <what you want to do>" >&2
         return 2
     fi
-    "$SHELLSIDE_PYTHON" -I "$SHELLSIDE_ASSIST_CLIENT" ask "$PWD" "$@"
+    SHELLSIDE_PREV_CMD=$(__shellside_prev) \
+        "$SHELLSIDE_PYTHON" -I "$SHELLSIDE_ASSIST_CLIENT" ask "$PWD" "$@"
 }

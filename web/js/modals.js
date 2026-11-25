@@ -1467,7 +1467,7 @@ function tabModel(ctx, patch) {
       "When bash cannot find a command \u2014 a typo like \u201cmakedire cane\u201d, or a request in plain words \u2014 the line is sent to the model below and its suggestions appear in the terminal. Tap one to paste it; you still press Enter. Bash only. To ask on purpose, start the line with a comma: \u201c, find the biggest files here\u201d.",
       (value) => patch({ assist_on_not_found: value })),
     fieldToggle("Show the model what you see", settings.assist_share_context !== false,
-      "Along with the line, the model gets the current folder's listing (as in the file panel: names, sizes, dates) and the last terminal lines, so \u201cdelete the 7 screenshots\u201d or \u201cfix the error above\u201d work. Turn off if your model service is not on this machine and you would rather not send that.",
+      "Along with the line, the model gets the current folder's listing (as in the file panel: names, sizes, dates) and the command you ran just before, with its output, so \u201cdelete the 7 screenshots\u201d or \u201cwhy did that fail?\u201d work. Turn off if your model service is not on this machine and you would rather not send that.",
       (value) => patch({ assist_share_context: value })),
     el("div", { class: "field" }, [
       el("span", { class: "field-label", text: "Model service" }),

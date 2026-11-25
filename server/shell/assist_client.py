@@ -46,7 +46,8 @@ def out(text: str = "") -> None:
 
 
 def request(mode: str, cwd: str, line: str) -> dict:
-    body = json.dumps({"mode": mode, "cwd": cwd, "line": line}).encode()
+    body = json.dumps({"mode": mode, "cwd": cwd, "line": line,
+                       "previous": os.environ.get("SHELLSIDE_PREV_CMD", "").strip()}).encode()
     req = urllib.request.Request(
         os.environ["SHELLSIDE_ASSIST_URL"],
         data=body,
