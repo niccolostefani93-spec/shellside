@@ -283,7 +283,7 @@ def load_route(component: dict[str, Any]):
     route_file = folder / "routes.py"
     if not route_file.exists():
         return None
-    module_name = "shellside_component_" + str(folder).strip("/").replace("/", "_").replace("-", "_")
+    module_name = "shellwalk_component_" + str(folder).strip("/").replace("/", "_").replace("-", "_")
     spec = importlib.util.spec_from_file_location(module_name, route_file)
     if spec is None or spec.loader is None:
         return None

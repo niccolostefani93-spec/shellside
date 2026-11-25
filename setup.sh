@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install Shellside: build the virtualenv, then run the guided setup.
+# Install Shellwalk: build the virtualenv, then run the guided setup.
 # Safe to re-run.
 #
 #     ./setup.sh                 # use the default python3
@@ -49,16 +49,16 @@ CHECK
 }
 
 # Run the guided setup only with a person at the keyboard. run.py's own
-# auto-setup (a systemd start with broken packages) sets SHELLSIDE_NO_WIZARD.
+# auto-setup (a systemd start with broken packages) sets SHELLWALK_NO_WIZARD.
 wizard() {
-    if [ -z "${SHELLSIDE_NO_WIZARD:-}" ] && [ -t 0 ] && [ -t 1 ]; then
+    if [ -z "${SHELLWALK_NO_WIZARD:-}" ] && [ -t 0 ] && [ -t 1 ]; then
         exec "$VENV/bin/python" run.py setup
     fi
     cat <<EOF2
 
   Installed. Configure it with:
 
-      ./shellside setup
+      ./shellwalk setup
 
 EOF2
     exit 0

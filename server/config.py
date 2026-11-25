@@ -1,4 +1,4 @@
-"""Paths and persisted settings for Shellside.
+"""Paths and persisted settings for Shellwalk.
 
 Configuration lives on disk, never only in the running process. It is split
 in two places (see server/datahome.py for why):
@@ -234,8 +234,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     # Send the model the current folder's listing and the last terminal
     # lines along with the request, so "delete these" has something to see.
     "assist_share_context": True,
-    # Run each new shell inside Shellside's own tmux server, so it survives
-    # Shellside restarting (Settings › General).
+    # Run each new shell inside Shellwalk's own tmux server, so it survives
+    # Shellwalk restarting (Settings › General).
     "tmux_sessions": False,
     # The guided tour has been shown (or skipped) once. Kept here, not in the
     # browser, so it shows once per install rather than once per browser or

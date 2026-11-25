@@ -6,9 +6,9 @@ runtime lives inside it. So all user state — settings, saved commands,
 favorites, service choices, your own menu actions and scripts, credentials,
 the supervisor's pid file — lives under one directory, DATA_HOME:
 
-    $SHELLSIDE_HOME                       if set (tests, a second instance)
-    $XDG_CONFIG_HOME/shellside            otherwise
-    ~/.config/shellside                   when XDG_CONFIG_HOME is unset
+    $SHELLWALK_HOME                       if set (tests, a second instance)
+    $XDG_CONFIG_HOME/shellwalk            otherwise
+    ~/.config/shellwalk                   when XDG_CONFIG_HOME is unset
 
 What stays in the code directory under app/ is only what ships: the default
 commands/favorites/data that seed a new DATA_HOME, and the settings panel and
@@ -31,19 +31,19 @@ from pathlib import Path
 
 def resolve_data_home() -> Path:
     """The user-data root. Keep in step with run.py's _data_home()."""
-    explicit = os.environ.get("SHELLSIDE_HOME", "").strip()
+    explicit = os.environ.get("SHELLWALK_HOME", "").strip()
     if explicit:
         return Path(explicit).expanduser().absolute()
     return default_data_home()
 
 
 def default_data_home() -> Path:
-    """Where DATA_HOME is when SHELLSIDE_HOME is not set."""
+    """Where DATA_HOME is when SHELLWALK_HOME is not set."""
     # The XDG spec says a relative XDG_CONFIG_HOME is invalid and must be
     # ignored, rather than resolved against whatever the cwd happens to be.
     xdg = os.environ.get("XDG_CONFIG_HOME", "").strip()
     base = Path(xdg) if xdg and os.path.isabs(xdg) else Path.home() / ".config"
-    return base / "shellside"
+    return base / "shellwalk"
 
 
 # Entries that may exist in DATA_HOME before anything worth keeping is in it.
@@ -233,6 +233,6 @@ def prepare(root: Path, home: Path) -> None:
     The second call finds nothing to do.
     """
     if migrate_legacy(root, home):
-        print(f"  Shellside: copied your settings and credentials from {root} to "
+        print(f"  Shellwalk: copied your settings and credentials from {root} to "
               f"{home} (the originals were left in place).", flush=True)
     seed_defaults(root, home)

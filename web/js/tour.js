@@ -9,7 +9,7 @@
 
 import { el } from "./ui.js";
 
-const SEEN_KEY = "shellside.tourSeen";
+const SEEN_KEY = "shellwalk.tourSeen";
 
 /**
  * Each step: target (CSS selector, or null for a centred card), title, text,
@@ -19,7 +19,7 @@ const SEEN_KEY = "shellside.tourSeen";
 const STEPS = [
   {
     target: null,
-    title: "Welcome to Shellside",
+    title: "Welcome to Shellwalk",
     text: "A real shell on this machine, with a file panel that follows it. "
       + "This short tour shows what you can do. Reopen it any time with Guide in the top bar.",
   },
@@ -33,7 +33,7 @@ const STEPS = [
     target: "#tabbar",
     title: "Tabs",
     text: "Each tab is its own shell. + opens a new one; ↺ lists every shell still running, "
-      + "even one no tab shows. Open Shellside on another device and the same tabs are there.",
+      + "even one no tab shows. Open Shellwalk on another device and the same tabs are there.",
     only: "desktop",
   },
   {

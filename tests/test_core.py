@@ -263,9 +263,9 @@ def test_gate_open_prefixes_and_loopback_rule():
     assert not gate._is_open("/api/bootstrap")
     assert not gate._is_open("/")
 
-    # Both modules read SHELLSIDE_BIND_HOST on every call, not at import, so
+    # Both modules read SHELLWALK_BIND_HOST on every call, not at import, so
     # setting the variable here is enough. It must also be restored: a test
-    # run from a shell inside Shellside inherits the live server's value.
+    # run from a shell inside Shellwalk inherits the live server's value.
     import shutil, tempfile
     from pathlib import Path as P
     from server import auth, auth_routes
@@ -279,26 +279,26 @@ def test_gate_open_prefixes_and_loopback_rule():
     original = auth.AUTH_DIR
     auth.AUTH_DIR = tmp / ".auth"          # locked / tunnel_mode read from here
     auth._key_cache = None
-    old = os.environ.pop("SHELLSIDE_BIND_HOST", None)
+    old = os.environ.pop("SHELLWALK_BIND_HOST", None)
     try:
         # unset: run.py's default is 127.0.0.1
         assert gate._bind_is_loopback_only() and auth_routes._bind_is_loopback_only()
         assert gate._evaluate(scope()) == (True, None)
 
         for host in ("127.0.0.1", "::1"):
-            os.environ["SHELLSIDE_BIND_HOST"] = host
+            os.environ["SHELLWALK_BIND_HOST"] = host
             assert gate._bind_is_loopback_only()
             assert auth_routes._bind_is_loopback_only()
             assert gate._evaluate(scope()) == (True, None)
 
         # bound to every interface: loopback alone no longer proves anything
-        os.environ["SHELLSIDE_BIND_HOST"] = "0.0.0.0"
+        os.environ["SHELLWALK_BIND_HOST"] = "0.0.0.0"
         assert not gate._bind_is_loopback_only()
         assert not auth_routes._bind_is_loopback_only()
         assert gate._evaluate(scope()) == (False, None)
 
         # bound to loopback, but relayed by a proxy/tunnel on this machine
-        os.environ["SHELLSIDE_BIND_HOST"] = "127.0.0.1"
+        os.environ["SHELLWALK_BIND_HOST"] = "127.0.0.1"
         assert {b"cf-connecting-ip", b"x-forwarded-for", b"forwarded"} <= set(gate.PROXY_HEADERS)
         for name in gate.PROXY_HEADERS:
             assert not gate._really_local(scope((name, b"203.0.113.9")))
@@ -317,9 +317,9 @@ def test_gate_open_prefixes_and_loopback_rule():
         assert gate._evaluate(scope()) == (False, None)
     finally:
         if old is not None:
-            os.environ["SHELLSIDE_BIND_HOST"] = old
+            os.environ["SHELLWALK_BIND_HOST"] = old
         else:
-            os.environ.pop("SHELLSIDE_BIND_HOST", None)
+            os.environ.pop("SHELLWALK_BIND_HOST", None)
         auth.AUTH_DIR = original
         auth._key_cache = None
         shutil.rmtree(tmp, ignore_errors=True)
@@ -363,7 +363,7 @@ def test_run_py_and_server_agree_on_data_home():
     from server import datahome
 
     spec = importlib.util.spec_from_file_location(
-        "shellside_run_under_test",
+        "shellwalk_run_under_test",
         os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "run.py"))
     run = importlib.util.module_from_spec(spec)
     sys.dont_write_bytecode = True       # no __pycache__/ left in the code dir
@@ -372,11 +372,11 @@ def test_run_py_and_server_agree_on_data_home():
     finally:
         sys.dont_write_bytecode = False
 
-    saved = {k: os.environ.get(k) for k in ("SHELLSIDE_HOME", "XDG_CONFIG_HOME")}
+    saved = {k: os.environ.get(k) for k in ("SHELLWALK_HOME", "XDG_CONFIG_HOME")}
     try:
         for home, xdg in [("/tmp/sh-a", None), ("~/sh-b", "/x"), ("", "/tmp/xdg"),
                           (None, "relative/ignored"), (None, None)]:
-            for key, value in (("SHELLSIDE_HOME", home), ("XDG_CONFIG_HOME", xdg)):
+            for key, value in (("SHELLWALK_HOME", home), ("XDG_CONFIG_HOME", xdg)):
                 if value is None:
                     os.environ.pop(key, None)
                 else:
@@ -510,7 +510,7 @@ def test_editors_write_to_data_home_not_the_code_directory():
 
     before = snapshot()
     home = config.DATA_HOME
-    assert str(home).startswith(os.environ["SHELLSIDE_HOME"])
+    assert str(home).startswith(os.environ["SHELLWALK_HOME"])
 
     cid = command_editor.create({"name": "Test cmd", "command": "true"})
     assert (home / "commands" / f"{cid}.json").is_file()
@@ -570,12 +570,12 @@ def test_each_data_home_gets_its_own_tmux_server(monkeypatch, tmp_path):
 
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     default = pty_session.datahome.default_data_home()
-    assert pty_session.tmux_socket_name(default) == "shellside"
+    assert pty_session.tmux_socket_name(default) == "shellwalk"
     other = pty_session.tmux_socket_name(tmp_path / "a")
-    assert other.startswith("shellside-") and other != "shellside"
+    assert other.startswith("shellwalk-") and other != "shellwalk"
     assert other != pty_session.tmux_socket_name(tmp_path / "b")
     # The test run's own DATA_HOME never shares the real install's shells.
-    assert pty_session.TMUX_SOCKET != "shellside"
+    assert pty_session.TMUX_SOCKET != "shellwalk"
 
 
 def test_assistant_sees_only_the_previous_command():

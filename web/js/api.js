@@ -9,7 +9,7 @@ export function setToken(value) {
 
 async function request(method, path, body, isForm = false) {
   const headers = {};
-  if (token) headers["x-shellside-token"] = token;
+  if (token) headers["x-shellwalk-token"] = token;
   if (body && !isForm) headers["Content-Type"] = "application/json";
   const response = await fetch(path, {
     method,
@@ -123,7 +123,7 @@ export const api = {
     if (relpath) form.append("relpath", relpath);
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/upload");
-    if (token) xhr.setRequestHeader("x-shellside-token", token);
+    if (token) xhr.setRequestHeader("x-shellwalk-token", token);
     if (onProgress) xhr.upload.onprogress = (event) => onProgress(event.loaded, event.total);
     xhr.onload = () => {
       let body = null;

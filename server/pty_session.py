@@ -42,26 +42,26 @@ CTRL_U = b"\x15"  # readline: kill whole line
 # ------------------------------------------------------------------- tmux
 #
 # Optional (Settings › General › Keep shells in tmux). A shell in tmux belongs
-# to tmux's server process, not to Shellside, so it survives Shellside being
+# to tmux's server process, not to Shellwalk, so it survives Shellwalk being
 # updated or restarted; the browser tab reattaches by the same session id.
 #
-# Shellside uses its own tmux server (-L shellside) and its own config file,
+# Shellwalk uses its own tmux server (-L shellwalk) and its own config file,
 # so the user's tmux sessions and ~/.tmux.conf are never touched.
 #
-# One tmux server per DATA_HOME: a second Shellside of the same user (a test
-# install with its own SHELLSIDE_HOME) must not list, and attach to, the
+# One tmux server per DATA_HOME: a second Shellwalk of the same user (a test
+# install with its own SHELLWALK_HOME) must not list, and attach to, the
 # shells of the first. The default DATA_HOME keeps the plain name, so shells
 # started before this rule still reattach.
 
 TMUX_CONF = Path(__file__).resolve().parent / "shell" / "tmux.conf"
-TMUX_PREFIX = "shellside-"
+TMUX_PREFIX = "shellwalk-"
 
 
 def tmux_socket_name(data_home: Path) -> str:
     if data_home.absolute() == datahome.default_data_home().absolute():
-        return "shellside"
+        return "shellwalk"
     digest = hashlib.sha256(str(data_home.absolute()).encode()).hexdigest()[:10]
-    return f"shellside-{digest}"
+    return f"shellwalk-{digest}"
 
 
 TMUX_SOCKET = tmux_socket_name(DATA_HOME)
@@ -73,7 +73,7 @@ def tmux_available() -> bool:
 
 def _tmux(*args: str, timeout: float = 3.0) -> subprocess.CompletedProcess:
     env = dict(os.environ)
-    env.pop("TMUX", None)   # Shellside itself started from inside tmux
+    env.pop("TMUX", None)   # Shellwalk itself started from inside tmux
     return subprocess.run(["tmux", "-L", TMUX_SOCKET, "-f", str(TMUX_CONF), *args],
                           capture_output=True, text=True, timeout=timeout, env=env)
 
@@ -83,7 +83,7 @@ def tmux_name(session_id: str) -> str:
 
 
 def tmux_sessions() -> list[dict]:
-    """Shellside's tmux sessions, whether or not Shellside is attached to them."""
+    """Shellwalk's tmux sessions, whether or not Shellwalk is attached to them."""
     if not tmux_available():
         return []
     try:
@@ -119,7 +119,7 @@ def tmux_has(session_id: str) -> bool:
 
 
 def shell_argv(shell: str) -> list[str]:
-    """bash gets Shellside's rc file (which loads ~/.bashrc first); other
+    """bash gets Shellwalk's rc file (which loads ~/.bashrc first); other
     shells start exactly as before."""
     if os.path.basename(shell) == "bash" and assist.BASHRC.is_file():
         return [shell, "--rcfile", str(assist.BASHRC), "-i"]
@@ -158,7 +158,7 @@ class PtySession:
         self._pane_pid: int | None = None
 
         # What the shell itself needs: a marker, plus the assistant's address.
-        shell_env = {"SHELLSIDE": "1", "COLORTERM": "truecolor",
+        shell_env = {"SHELLWALK": "1", "COLORTERM": "truecolor",
                      **assist.shell_environment(self.id)}
 
         environ = dict(os.environ)
@@ -170,7 +170,7 @@ class PtySession:
         start_dir = cwd if os.path.isdir(cwd) else os.path.expanduser("~")
         argv = shell_argv(shell)
         if self.tmux:
-            # -A: attach when the session already exists (Shellside restarted
+            # -A: attach when the session already exists (Shellwalk restarted
             # and the tab reconnects), create it otherwise.
             extra = [arg for key, value in shell_env.items() for arg in ("-e", f"{key}={value}")]
             argv = ["tmux", "-L", TMUX_SOCKET, "-f", str(TMUX_CONF),
@@ -270,7 +270,7 @@ class PtySession:
         self.alive = False
         for fn in list(self._listeners):
             try:
-                fn(b"\r\n[shellside] shell exited\r\n")
+                fn(b"\r\n[shellwalk] shell exited\r\n")
             except Exception:
                 pass
 
@@ -450,7 +450,7 @@ class SessionRegistry:
         return session
 
     def adopt(self, session_id: str, **kwargs) -> PtySession | None:
-        """Reattach to a shell that outlived Shellside in tmux, keeping its id.
+        """Reattach to a shell that outlived Shellwalk in tmux, keeping its id.
 
         Returns None when there is no such tmux session, so the caller opens
         a new shell as usual.
@@ -472,9 +472,9 @@ class SessionRegistry:
         """The open tabs: every live shell, oldest first.
 
         Tabs live here rather than in the browser, so closing the browser
-        leaves them all running and whichever device opens Shellside next,
+        leaves them all running and whichever device opens Shellwalk next,
         phone or computer, gets the same tabs back. Shells that outlived a
-        Shellside restart in tmux are taken back in first.
+        Shellwalk restart in tmux are taken back in first.
         """
         for item in tmux_sessions():
             if item["id"] not in self._sessions:

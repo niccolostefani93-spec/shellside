@@ -80,7 +80,7 @@ def load_module(category: str, service_id: str):
     service_file = SERVICES_DIR / category / service_id / "service.py"
     if not service_file.exists():
         return None
-    module_name = f"shellside_service_{category}_{service_id}"
+    module_name = f"shellwalk_service_{category}_{service_id}"
     spec = importlib.util.spec_from_file_location(module_name, service_file)
     if spec is None or spec.loader is None:
         return None

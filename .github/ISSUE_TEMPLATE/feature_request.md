@@ -10,7 +10,7 @@ assignees: ""
 What are you trying to do, and what gets in the way today?
 
 **The idea**
-What you would like Shellside to do.
+What you would like Shellwalk to do.
 
 **Alternatives you have considered**
 Other ways of getting there, including a context-menu action, a saved

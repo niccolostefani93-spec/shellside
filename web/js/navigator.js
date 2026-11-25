@@ -176,7 +176,7 @@ export class Navigator {
           event.dataTransfer.setData("text/uri-list", url);
           event.dataTransfer.setData("text/plain", url);
           // Read back by app.js when the entry is dropped on the terminal.
-          event.dataTransfer.setData("application/x-shellside-path", entry.path);
+          event.dataTransfer.setData("application/x-shellwalk-path", entry.path);
           node.classList.add("is-dragging");
         });
         node.addEventListener("dragend", () => node.classList.remove("is-dragging"));

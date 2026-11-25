@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import AUTH_DIR
-COOKIE_NAME = "shellside_session"
+COOKIE_NAME = "shellwalk_session"
 SESSION_MAX_AGE = 30 * 24 * 3600          # 30 days: this runs a phone-reachable
                                            # terminal, not a banking site.
 LOCAL_TOKEN_PATH_HINT = "/auth/local?token="

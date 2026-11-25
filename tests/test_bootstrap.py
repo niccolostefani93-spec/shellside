@@ -47,7 +47,7 @@ def auth_dir():
 
 
 def _load_run_py():
-    spec = importlib.util.spec_from_file_location("shellside_run_bootstrap", ROOT / "run.py")
+    spec = importlib.util.spec_from_file_location("shellwalk_run_bootstrap", ROOT / "run.py")
     run = importlib.util.module_from_spec(spec)
     sys.dont_write_bytecode = True
     try:
@@ -113,7 +113,7 @@ def _client(app, client=LAN_CLIENT):
 
 
 def test_bootstrap_login_flow(auth_dir, monkeypatch):
-    monkeypatch.setenv("SHELLSIDE_BIND_HOST", "0.0.0.0")
+    monkeypatch.setenv("SHELLWALK_BIND_HOST", "0.0.0.0")
     monkeypatch.setattr(auth, "DEFAULTS", {**auth.DEFAULTS, "throttle_seconds": 0})
     from server.main import app
     from server import config
@@ -193,4 +193,4 @@ def test_local_token_not_printed_without_a_terminal(auth_dir, capsys):
     asyncio.run(main._rotate_local_token())          # capsys: not a TTY
     out = capsys.readouterr().out
     assert auth.local_token() and auth.local_token() not in out
-    assert "./shellside link" in out
+    assert "./shellwalk link" in out

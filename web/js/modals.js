@@ -274,7 +274,7 @@ function tabCommands(ctx) {
                      onClick: () => commandForm(ctx, null, back) }),
     ]),
     el("div", { class: "field-note",
-                text: "Commands in the top bar show up as chips on its left; the + after them adds a new one. Each command is a JSON file in the commands/ folder of your data folder (~/.config/shellside by default)." }),
+                text: "Commands in the top bar show up as chips on its left; the + after them adds a new one. Each command is a JSON file in the commands/ folder of your data folder (~/.config/shellwalk by default)." }),
   ]);
 }
 
@@ -733,7 +733,7 @@ function tabGeneral(ctx, patch) {
       "When vim or a REPL owns the terminal, clicks would otherwise type into it.",
       (value) => patch({ block_inject_when_busy: value })),
     fieldToggle("Keep shells in tmux", settings.tmux_sessions,
-      "New shells run inside Shellside's own tmux server, so they survive Shellside restarting or updating, and the tab reattaches to the same shell. Needs tmux on the host (sudo apt install tmux). Your own tmux sessions and ~/.tmux.conf are not touched. Takes effect for new tabs.",
+      "New shells run inside Shellwalk's own tmux server, so they survive Shellwalk restarting or updating, and the tab reattaches to the same shell. Needs tmux on the host (sudo apt install tmux). Your own tmux sessions and ~/.tmux.conf are not touched. Takes effect for new tabs.",
       (value) => patch({ tmux_sessions: value })),
   ]);
 }

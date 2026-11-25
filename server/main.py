@@ -1,4 +1,4 @@
-"""Shellside backend."""
+"""Shellwalk backend."""
 from __future__ import annotations
 
 import asyncio
@@ -27,7 +27,7 @@ from .config import (BROWSER_NATIVE, DEFAULT_FILE_ICONS, DEFAULT_HANDLERS, DATA_
 from .pty_session import registry, tmux_available, tmux_sessions
 from .templating import render
 
-app = FastAPI(title="Shellside", docs_url=None, redoc_url=None)
+app = FastAPI(title="Shellwalk", docs_url=None, redoc_url=None)
 app.include_router(auth_routes.router)
 
 
@@ -40,17 +40,17 @@ async def _rotate_local_token() -> None:
     without run.py needing to import anything from server/.
     """
     token = auth.new_local_token()
-    port = os.environ.get("SHELLSIDE_PORT", "8022")
+    port = os.environ.get("SHELLWALK_PORT", "8022")
     import sys
     if sys.stdout.isatty():
-        print(f"\n  \033[38;5;179mShellside {VERSION}\033[0m is up. Signed out? This link "
+        print(f"\n  \033[38;5;179mShellwalk {VERSION}\033[0m is up. Signed out? This link "
               f"signs you back in from this machine, no password:")
         print(f"      http://127.0.0.1:{port}/auth/local?token={token}\n", flush=True)
     else:
         # A service: stdout goes to the journal, and a secret has no place in
-        # a log. The owner reads the link with ./shellside link instead.
-        print(f"Shellside {VERSION} is up on port {port}. "
-              f"Sign-in link for this machine: ./shellside link", flush=True)
+        # a log. The owner reads the link with ./shellwalk link instead.
+        print(f"Shellwalk {VERSION} is up on port {port}. "
+              f"Sign-in link for this machine: ./shellwalk link", flush=True)
 
 
 @app.on_event("startup")
@@ -81,7 +81,7 @@ async def terminal_socket(ws: WebSocket, session: str | None = Query(None)) -> N
             cwd=settings["start_dir"],
             scrollback_bytes=settings.get("scrollback_replay_bytes", 200_000),
         )
-        # A tab whose shell outlived a Shellside restart in tmux gets that
+        # A tab whose shell outlived a Shellwalk restart in tmux gets that
         # same shell back, under the same id, instead of a fresh one.
         pty_session = registry.adopt(session, **shell_options)
         resumed = pty_session is not None
@@ -566,7 +566,7 @@ async def sessions_list() -> dict[str, Any]:
 
     A tab that lost its session id (the browser was killed, the tab closed by
     accident) leaves its shell running here; this is how it is found again.
-    Shells kept in tmux are listed even after a Shellside restart.
+    Shells kept in tmux are listed even after a Shellwalk restart.
     """
     shells = []
     known = set()
@@ -597,7 +597,7 @@ async def workspace() -> dict[str, Any]:
     """The open tabs, for a browser that is starting up.
 
     Closing the browser leaves every shell running; the next browser to open
-    Shellside, on any device, gets the same tabs in the same order. None
+    Shellwalk, on any device, gets the same tabs in the same order. None
     left means the browser opens one new tab.
     """
     settings = load_settings()
@@ -619,7 +619,7 @@ async def session_title(payload: dict[str, Any]) -> dict[str, Any]:
 
 @app.post("/api/sessions/adopt")
 async def sessions_adopt(payload: dict[str, Any]) -> dict[str, Any]:
-    """Make a tmux shell that outlived Shellside openable in a tab again."""
+    """Make a tmux shell that outlived Shellwalk openable in a tab again."""
     session_id = str(payload.get("session", ""))
     if registry.get(session_id) is not None:
         return {"ok": True, "session": session_id}
@@ -639,7 +639,7 @@ async def assist_endpoint(request: Request, payload: dict[str, Any]) -> dict[str
 
     gate.py has already checked loopback and the per-shell token.
     """
-    shell_id = request.headers.get("x-shellside-shell", "")
+    shell_id = request.headers.get("x-shellwalk-shell", "")
     return await assist.handle(payload, shell_id)
 
 
@@ -1014,7 +1014,7 @@ async def update_status() -> dict[str, Any]:
     status["sessions"] = _sessions_at_risk()
     status["roots"] = list(update_plan.MERGE_ROOTS)
     status["files"] = list(update_plan.MERGE_FILES)
-    status["supervised"] = os.environ.get("SHELLSIDE_SUPERVISED") == "1"
+    status["supervised"] = os.environ.get("SHELLWALK_SUPERVISED") == "1"
     status["data_home"] = str(DATA_HOME)
     return status
 
@@ -1077,7 +1077,7 @@ async def update_backup() -> Response:
     """Download a personal backup: DATA_HOME minus credentials.
 
     Paths in the zip are relative to DATA_HOME, so unzipping it into an empty
-    DATA_HOME (by default ~/.config/shellside) restores it. Streams from a
+    DATA_HOME (by default ~/.config/shellwalk) restores it. Streams from a
     temporary file so a large data folder does not have to fit in memory.
     """
     stamp = time.strftime("%Y%m%d-%H%M%S")
@@ -1105,7 +1105,7 @@ async def update_backup() -> Response:
 
     return FileResponse(
         temp_path,
-        filename=f"shellside-settings-{stamp}.zip",
+        filename=f"shellwalk-settings-{stamp}.zip",
         media_type="application/zip",
         background=BackgroundTask(lambda: os.unlink(temp_path)),
     )

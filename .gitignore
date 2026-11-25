@@ -8,7 +8,7 @@ build/
 dist/
 
 # Runtime state and secrets: never commit. Current versions keep all of it
-# in DATA_HOME (~/.config/shellside, see server/datahome.py); these are where
+# in DATA_HOME (~/.config/shellwalk, see server/datahome.py); these are where
 # older versions wrote it inside the code directory, and where an imported
 # update is staged before the supervisor applies it.
 .auth/

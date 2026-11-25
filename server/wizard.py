@@ -1,7 +1,7 @@
-"""Guided setup in the terminal: `./shellside setup`, `reset-auth`, `status`.
+"""Guided setup in the terminal: `./shellwalk setup`, `reset-auth`, `status`.
 
 Runs over SSH on a headless box: three questions, then it prints where to
-open Shellside and, when the LAN was chosen and no password exists yet, a
+open Shellwalk and, when the LAN was chosen and no password exists yet, a
 short-lived setup password for the first sign-in from another device (see
 server/auth.py's bootstrap section).
 
@@ -34,7 +34,7 @@ GREEN = "\033[38;5;108m"
 BOLD = "\033[1m"
 OFF = "\033[0m"
 
-SERVICE_NAME = "shellside.service"
+SERVICE_NAME = "shellwalk.service"
 LOOPBACK = "127.0.0.1"
 LAN = "0.0.0.0"
 
@@ -184,12 +184,12 @@ def unit_path() -> Path:
 def unit_text() -> str:
     venv_python = ROOT / ".venv" / "bin" / "python"
     python = venv_python if venv_python.exists() else Path(sys.executable)
-    # A setup run with SHELLSIDE_HOME (a test install, a second instance)
+    # A setup run with SHELLWALK_HOME (a test install, a second instance)
     # must start the service on that same data folder, not the default one.
-    explicit = os.environ.get("SHELLSIDE_HOME", "").strip()
-    home_line = f'Environment="SHELLSIDE_HOME={DATA_HOME}"\n' if explicit else ""
+    explicit = os.environ.get("SHELLWALK_HOME", "").strip()
+    home_line = f'Environment="SHELLWALK_HOME={DATA_HOME}"\n' if explicit else ""
     return f"""[Unit]
-Description=Shellside (web terminal and file manager)
+Description=Shellwalk (web terminal and file manager)
 After=network-online.target
 Wants=network-online.target
 
@@ -227,7 +227,7 @@ def linger_enabled() -> bool:
 def enable_autostart() -> bool:
     if not ensure_linger():
         say("  Could not reach your systemd user manager. Run this once, then "
-            "./shellside setup again:", RED)
+            "./shellwalk setup again:", RED)
         say(f"      sudo loginctl enable-linger {_user()}")
         return False
     path = unit_path()
@@ -260,7 +260,7 @@ def disable_autostart() -> None:
 
 def _arguments(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="shellside setup",
+        prog="shellwalk setup",
         description="Guided setup. With no options it asks; options answer for it.")
     where = parser.add_mutually_exclusive_group()
     where.add_argument("--local", action="store_true", help="only this machine")
@@ -287,18 +287,18 @@ def setup(argv: list[str]) -> int:
     can_autostart = systemd_present()
 
     say()
-    say("  Shellside setup", AMBER + BOLD)
+    say("  Shellwalk setup", AMBER + BOLD)
     say(f"  Settings and passwords live in {DATA_HOME}", DIM)
     if auth.password_is_set():
         say("  A LAN password is already set. It stays as it is; to start over, "
-            "run ./shellside reset-auth.", DIM)
+            "run ./shellwalk reset-auth.", DIM)
     say()
 
     # 1. Where from
     if args.lan or args.local:
         lan = args.lan
     elif interactive:
-        say("  1. Who should be able to open Shellside?", BOLD)
+        say("  1. Who should be able to open Shellwalk?", BOLD)
         lan = ask_choice("Your choice", [
             "Only this machine (open it here, or through an SSH tunnel)",
             "Every device on my local network (phone, laptop...), with a password",
@@ -324,7 +324,7 @@ def setup(argv: list[str]) -> int:
     if args.autostart or args.no_autostart:
         autostart = args.autostart
     elif interactive and can_autostart:
-        say("  3. Start Shellside automatically when this machine boots?", BOLD)
+        say("  3. Start Shellwalk automatically when this machine boots?", BOLD)
         autostart = ask_yes_no("Start at boot?", True)
         say()
     else:
@@ -336,9 +336,9 @@ def setup(argv: list[str]) -> int:
         say("  4. Will you reach it from the internet through a tunnel or reverse",
             BOLD)
         say("     proxy on this machine (cloudflared, ngrok, nginx, socat...)?", BOLD)
-        say("     Such a tunnel connects from 127.0.0.1, so Shellside then stops", DIM)
+        say("     Such a tunnel connects from 127.0.0.1, so Shellwalk then stops", DIM)
         say("     trusting 127.0.0.1 by itself: on this machine too you sign in once,", DIM)
-        say("     with the link from ./shellside link.", DIM)
+        say("     with the link from ./shellwalk link.", DIM)
         tunnel = ask_yes_no("Tunnel or proxy?", auth.tunnel_mode())
         say()
     else:
@@ -346,7 +346,7 @@ def setup(argv: list[str]) -> int:
 
     if autostart and not can_autostart:
         say("  systemd user services are not available here, so autostart is "
-            "skipped. Start it by hand with ./shellside", RED)
+            "skipped. Start it by hand with ./shellwalk", RED)
         autostart = False
 
     save_settings({"bind_host": LAN if lan else LOOPBACK, "port": port})
@@ -374,21 +374,21 @@ def setup(argv: list[str]) -> int:
     _summary(lan, port, setup_password)
 
     # Start, or restart so the new address and port take effect. Last, and
-    # without waiting: when this runs from a Shellside terminal, the restart
+    # without waiting: when this runs from a Shellwalk terminal, the restart
     # ends this very shell.
     if autostart:
         verb = "restart" if service_active() else "start"
         _systemctl("--no-block", verb, SERVICE_NAME)
-        say(f"  Shellside is {'restarting' if verb == 'restart' else 'starting'} "
-            f"as a service. Logs: journalctl --user -u shellside -f", DIM)
+        say(f"  Shellwalk is {'restarting' if verb == 'restart' else 'starting'} "
+            f"as a service. Logs: journalctl --user -u shellwalk -f", DIM)
     elif port_in_use(port):
-        say(f"  Something already listens on port {port}. If it is Shellside, "
+        say(f"  Something already listens on port {port}. If it is Shellwalk, "
             "restart it to apply", DIM)
-        say("  these settings; otherwise run ./shellside setup again and pick "
+        say("  these settings; otherwise run ./shellwalk setup again and pick "
             "another port.", DIM)
     else:
         say("  Start it with:", DIM)
-        say("      ./shellside")
+        say("      ./shellwalk")
     say()
     return 0
 
@@ -396,7 +396,7 @@ def setup(argv: list[str]) -> int:
 def _summary(lan: bool, port: int, setup_password: str | None) -> None:
     say("  Done.", GREEN + BOLD)
     say()
-    say("  Open Shellside at:", BOLD)
+    say("  Open Shellwalk at:", BOLD)
     say(f"      http://127.0.0.1:{port}        (on this machine)")
     if lan:
         addresses = lan_addresses()
@@ -417,7 +417,7 @@ def _summary(lan: bool, port: int, setup_password: str | None) -> None:
         say("  Tunnel mode is on: 127.0.0.1 is not trusted by itself. To sign in "
             "from", DIM)
         say("  a browser on this machine, open the link printed by: "
-            "./shellside link", DIM)
+            "./shellwalk link", DIM)
         say()
 
     if lan:
@@ -428,7 +428,7 @@ def _summary(lan: bool, port: int, setup_password: str | None) -> None:
             say(f"  Use it once, from a device on your network, before {expires}. "
                 f"It then asks", DIM)
             say("  you to choose your real password. If it expires, run "
-                "./shellside setup again.", DIM)
+                "./shellwalk setup again.", DIM)
         elif auth.password_is_set():
             say("  Sign in from your network with your LAN password.", DIM)
         elif auth.lan_open():
@@ -445,14 +445,14 @@ def _summary(lan: bool, port: int, setup_password: str | None) -> None:
 
 def reset_auth(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="shellside reset-auth",
+        prog="shellwalk reset-auth",
         description="Forget the LAN password and go back to the unconfigured state.")
     parser.add_argument("--yes", "-y", action="store_true", help="do not ask for confirmation")
     args = parser.parse_args(argv)
 
     say()
     say("  This removes the LAN password, switches off “LAN without a password”,", BOLD)
-    say("  signs out every browser, and makes Shellside listen on this machine only.")
+    say("  signs out every browser, and makes Shellwalk listen on this machine only.")
     say("  Devices enrolled with an internet password are kept (revoke them in Settings).", DIM)
     if not args.yes:
         if not sys.stdin.isatty():
@@ -467,7 +467,7 @@ def reset_auth(argv: list[str]) -> int:
             return 0
     auth.reset_access()
     save_settings({"bind_host": LOOPBACK})
-    say("  Done. Shellside is back to its unconfigured state.", GREEN)
+    say("  Done. Shellwalk is back to its unconfigured state.", GREEN)
     say()
     if sys.stdin.isatty() and not args.yes:
         try:
@@ -475,7 +475,7 @@ def reset_auth(argv: list[str]) -> int:
                 return setup([])
         except KeyboardInterrupt:
             say()
-    say("  Run ./shellside setup to configure it again.", DIM)
+    say("  Run ./shellwalk setup to configure it again.", DIM)
     return 0
 
 
@@ -507,22 +507,22 @@ def status(argv: list[str]) -> int:
 def link(argv: list[str]) -> int:
     """The proof-of-locality link (server/auth.py), read from this user's
     own files: being able to run this is the proof. Kept out of the logs on
-    purpose, so this is the way to get it when Shellside runs as a service."""
+    purpose, so this is the way to get it when Shellwalk runs as a service."""
     parser = argparse.ArgumentParser(
-        prog="shellside link",
+        prog="shellwalk link",
         description="Print the link that signs in a browser on this machine.")
     parser.add_argument("--open", action="store_true", help="also open it in the browser")
     args = parser.parse_args(argv)
     port = int(load_settings().get("port") or 8022)
     token = auth.local_token()
     if not port_in_use(port) or not token:
-        say(f"  Shellside is not running on port {port}. Start it first.", RED)
+        say(f"  Shellwalk is not running on port {port}. Start it first.", RED)
         return 1
     url = f"http://127.0.0.1:{port}/auth/local?token={token}"
     say()
     say("  Open this in a browser on this machine (it only works from here):", DIM)
     say(f"      {url}")
-    say("  It changes every time Shellside restarts.", DIM)
+    say("  It changes every time Shellwalk restarts.", DIM)
     say()
     if args.open:
         import webbrowser

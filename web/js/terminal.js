@@ -44,7 +44,7 @@ export class TerminalSurface {
     this.onSession = onSession;
     this.onClosed = onClosed;
     this.onStatus = onStatus;
-    // Called with a command when a `shellside-paste:` link printed by the
+    // Called with a command when a `shellwalk-paste:` link printed by the
     // command assistant (server/shell/assist_client.py) is clicked.
     this.onPasteLink = onPasteLink;
     // Which PTY to attach to is decided by whoever creates this surface —
@@ -72,7 +72,7 @@ export class TerminalSurface {
       // The app owns right-click: it opens our context menu, not the browser's.
       rightClickSelectsWord: false,
       // OSC 8 hyperlinks printed into the terminal. The assistant writes its
-      // suggestions as shellside-paste:<base64url command>; a click pastes
+      // suggestions as shellwalk-paste:<base64url command>; a click pastes
       // the command (never runs it). Ordinary web links open in a new tab.
       linkHandler: {
         allowNonHttpProtocols: true,
@@ -153,7 +153,7 @@ export class TerminalSurface {
       if (this.onStatus) this.onStatus({ connected: false, code: event.code, reason: event.reason });
       if (this.closed) return;   // destroy() closed this on purpose — never reconnect
       if (event.code === 4403) {
-        this.term.write(`\r\n\x1b[31m[shellside] access denied: ${event.reason}\x1b[0m\r\n`);
+        this.term.write(`\r\n\x1b[31m[shellwalk] access denied: ${event.reason}\x1b[0m\r\n`);
         return;
       }
       this.retry += 1;
@@ -163,7 +163,7 @@ export class TerminalSurface {
   }
 
   activateLink(uri) {
-    const prefix = "shellside-paste:";
+    const prefix = "shellwalk-paste:";
     if (uri.startsWith(prefix)) {
       let command = "";
       try {

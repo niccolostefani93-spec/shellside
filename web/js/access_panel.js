@@ -31,10 +31,10 @@ export function tabAccess(ctx) {
       if (!value) {
         const ok = await confirm({
           title: "Remove the LAN password?",
-          message: "This returns Shellside to its unconfigured state: other " +
+          message: "This returns Shellwalk to its unconfigured state: other " +
                     "devices are signed out, \u201cLAN without a password\u201d is " +
                     "switched off, and from the next restart it listens on this " +
-                    "machine only. Run ./shellside setup to open it to the LAN again.",
+                    "machine only. Run ./shellwalk setup to open it to the LAN again.",
           confirmLabel: "Remove it", danger: true,
         });
         if (!ok) return;

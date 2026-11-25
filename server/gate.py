@@ -87,7 +87,7 @@ def _same_origin(scope) -> bool:
 
     Browsers always send Origin on websocket handshakes and on cross-site
     POSTs, and a page cannot forge it. Without this check any website you
-    visit could open /ws/terminal on your Shellside: cookies (or loopback
+    visit could open /ws/terminal on your Shellwalk: cookies (or loopback
     trust) would come along on their own. That is Cross-Site WebSocket
     Hijacking, and SameSite=Lax does not stop it from a sibling subdomain.
 
@@ -138,7 +138,7 @@ def _really_local(scope) -> bool:
 
 
 def _bind_is_loopback_only() -> bool:
-    return os.environ.get("SHELLSIDE_BIND_HOST", "127.0.0.1") in LOOPBACK_IPS
+    return os.environ.get("SHELLWALK_BIND_HOST", "127.0.0.1") in LOOPBACK_IPS
 
 
 def _client_is_loopback(scope) -> bool:
@@ -253,7 +253,7 @@ class GateMiddleware:
             if scope["type"] == "websocket":
                 await receive()                            # consume connect
                 await send({"type": "websocket.close", "code": 4403,
-                            "reason": "this page's address is not this Shellside's own "
+                            "reason": "this page's address is not this Shellwalk's own "
                                       "(see allowed_origins in the README)"})
             else:
                 await JSONResponse({"detail": "Cross-site request refused."},

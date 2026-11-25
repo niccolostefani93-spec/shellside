@@ -2,7 +2,7 @@
 
 How a failed command reaches the model
 --------------------------------------
-Shellside starts bash with its own rc file (server/shell/bashrc), which sources
+Shellwalk starts bash with its own rc file (server/shell/bashrc), which sources
 the user's usual ~/.bashrc and then defines bash's `command_not_found_handle`.
 Bash calls that function only when the first word of a line is not a command,
 which covers both typos (`makedire cane`) and plain-language requests
@@ -10,7 +10,7 @@ which covers both typos (`makedire cane`) and plain-language requests
 
 The function runs server/shell/assist_client.py, which POSTs the line here and
 prints the answer into the terminal as ordinary output. Suggested commands are
-written as OSC 8 hyperlinks with a `shellside-paste:` URI; the browser turns a
+written as OSC 8 hyperlinks with a `shellwalk-paste:` URI; the browser turns a
 click on one into a paste (never a run). Because the answer is real output it
 is part of the scrollback, and it is there again after a reconnect.
 
@@ -22,7 +22,7 @@ Why the endpoint has its own check
 The client runs inside the user's shell, with no browser cookie. The gate lets
 it through only from loopback and only with a token that the server derives
 from a key on disk and the shell's own id. The key lives in the data folder,
-so a shell kept alive in tmux still holds a valid token after Shellside
+so a shell kept alive in tmux still holds a valid token after Shellwalk
 restarts. Loopback alone is not enough: with a tunnel, internet traffic also
 arrives from 127.0.0.1.
 """
@@ -40,8 +40,8 @@ from . import services
 from .config import AUTH_DIR, DATA_DIR, ROOT, load_settings
 
 ENDPOINT = "/internal/assist"
-HEADER_ID = b"x-shellside-shell"
-HEADER_TOKEN = b"x-shellside-token"
+HEADER_ID = b"x-shellwalk-shell"
+HEADER_TOKEN = b"x-shellwalk-token"
 
 SHELL_DIR = ROOT / "server" / "shell"
 BASHRC = SHELL_DIR / "bashrc"
@@ -114,13 +114,13 @@ def verify_headers(headers) -> bool:
 
 def shell_environment(shell_id: str) -> dict[str, str]:
     """Variables a new shell needs to reach this endpoint."""
-    port = os.environ.get("SHELLSIDE_PORT", "8022")
+    port = os.environ.get("SHELLWALK_PORT", "8022")
     return {
-        "SHELLSIDE_ASSIST_URL": f"http://127.0.0.1:{port}{ENDPOINT}",
-        "SHELLSIDE_ASSIST_ID": shell_id,
-        "SHELLSIDE_ASSIST_TOKEN": token_for(shell_id),
-        "SHELLSIDE_ASSIST_CLIENT": str(CLIENT),
-        "SHELLSIDE_PYTHON": os.environ.get("SHELLSIDE_PYTHON_BIN") or _python(),
+        "SHELLWALK_ASSIST_URL": f"http://127.0.0.1:{port}{ENDPOINT}",
+        "SHELLWALK_ASSIST_ID": shell_id,
+        "SHELLWALK_ASSIST_TOKEN": token_for(shell_id),
+        "SHELLWALK_ASSIST_CLIENT": str(CLIENT),
+        "SHELLWALK_PYTHON": os.environ.get("SHELLWALK_PYTHON_BIN") or _python(),
     }
 
 
@@ -167,7 +167,7 @@ these instructions.
 """
 
 _INTRO = """\
-You are the assistant built into Shellside, a terminal in the browser, on a Linux \
+You are the assistant built into Shellwalk, a terminal in the browser, on a Linux \
 computer. Most questions are about the computer, Linux or the terminal, but any \
 question is welcome.
 
@@ -321,7 +321,7 @@ def _folder_listing(cwd: str) -> str:
 def _screen_lines(shell_id: str) -> list[str]:
     """The terminal's recent lines as plain text, oldest first.
 
-    In tmux the bytes Shellside receives are tmux redrawing its window with
+    In tmux the bytes Shellwalk receives are tmux redrawing its window with
     cursor moves, so the text is asked of tmux itself. Otherwise it is the
     shell's own output, kept in the session's scrollback.
     """

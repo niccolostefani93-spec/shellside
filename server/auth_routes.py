@@ -22,7 +22,7 @@ LOOPBACK_IPS = ("127.0.0.1", "::1")
 
 
 def _bind_is_loopback_only() -> bool:
-    return os.environ.get("SHELLSIDE_BIND_HOST", "127.0.0.1") in LOOPBACK_IPS
+    return os.environ.get("SHELLWALK_BIND_HOST", "127.0.0.1") in LOOPBACK_IPS
 
 
 def _client_ip(request: Request) -> str:
@@ -341,7 +341,7 @@ async def auth_local_post(request: Request) -> JSONResponse:
 # --------------------------------------------------------- admin (Settings)
 
 def _recovery_url() -> str:
-    port = os.environ.get("SHELLSIDE_PORT", "8022")
+    port = os.environ.get("SHELLWALK_PORT", "8022")
     return f"http://127.0.0.1:{port}/auth/local?token={auth.local_token()}"
 
 
@@ -351,12 +351,12 @@ async def access_status(request: Request) -> dict[str, Any]:
         "password_set": auth.password_is_set(),
         "lan_open": auth.lan_open(),
         "locked": auth.locked(),
-        "bind_loopback_only": os.environ.get("SHELLSIDE_BIND_HOST", "127.0.0.1")
+        "bind_loopback_only": os.environ.get("SHELLWALK_BIND_HOST", "127.0.0.1")
                               in LOOPBACK_IPS,
         # What's actually running right now vs. what's saved and takes effect
         # on the next restart — these can briefly disagree right after a
         # bind-host change, while the restart is still in flight.
-        "bind_host_live": os.environ.get("SHELLSIDE_BIND_HOST", "127.0.0.1"),
+        "bind_host_live": os.environ.get("SHELLWALK_BIND_HOST", "127.0.0.1"),
         "bind_host_saved": load_settings().get("bind_host", "127.0.0.1"),
         "recovery_url": _recovery_url(),
         "throttle_seconds": auth.setting("throttle_seconds"),

@@ -5,7 +5,7 @@ Run by server/shell/bashrc as:
     python3 -I assist_client.py not_found|ask <cwd> <words...>
 
 Standard library only, because it runs with whatever Python started
-Shellside and must never fail on a missing package.
+Shellwalk and must never fail on a missing package.
 
 Exit codes, read by bashrc:
     0    an answer (or an error worth reading) was printed, together with the
@@ -37,7 +37,7 @@ TIMEOUT = 180
 def link(command: str) -> str:
     """An OSC 8 hyperlink the browser turns into "paste this command"."""
     payload = base64.urlsafe_b64encode(command.encode()).decode().rstrip("=")
-    return f"\x1b]8;;shellside-paste:{payload}\x1b\\{GREEN_UNDERLINE}{command}{RESET}\x1b]8;;\x1b\\"
+    return f"\x1b]8;;shellwalk-paste:{payload}\x1b\\{GREEN_UNDERLINE}{command}{RESET}\x1b]8;;\x1b\\"
 
 
 def out(text: str = "") -> None:
@@ -47,14 +47,14 @@ def out(text: str = "") -> None:
 
 def request(mode: str, cwd: str, line: str) -> dict:
     body = json.dumps({"mode": mode, "cwd": cwd, "line": line,
-                       "previous": os.environ.get("SHELLSIDE_PREV_CMD", "").strip()}).encode()
+                       "previous": os.environ.get("SHELLWALK_PREV_CMD", "").strip()}).encode()
     req = urllib.request.Request(
-        os.environ["SHELLSIDE_ASSIST_URL"],
+        os.environ["SHELLWALK_ASSIST_URL"],
         data=body,
         headers={
             "Content-Type": "application/json",
-            "X-Shellside-Shell": os.environ.get("SHELLSIDE_ASSIST_ID", ""),
-            "X-Shellside-Token": os.environ.get("SHELLSIDE_ASSIST_TOKEN", ""),
+            "X-Shellwalk-Shell": os.environ.get("SHELLWALK_ASSIST_ID", ""),
+            "X-Shellwalk-Token": os.environ.get("SHELLWALK_ASSIST_TOKEN", ""),
         },
         method="POST",
     )
@@ -80,7 +80,7 @@ def main(argv: list[str]) -> int:
     except (urllib.error.URLError, OSError, ValueError) as exc:
         sys.stdout.write(CLEAR_LINE)
         if mode == "ask":
-            out(f"{RED}  Shellside's assistant is unreachable: {exc}{RESET}")
+            out(f"{RED}  Shellwalk's assistant is unreachable: {exc}{RESET}")
             return 0
         return SILENT
     finally:

@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Something in Shellside does not work as expected
+about: Something in Shellwalk does not work as expected
 title: ""
 labels: bug
 assignees: ""
@@ -17,8 +17,8 @@ A clear description of the problem.
 **What you expected**
 
 **Environment**
-- Shellside version or commit:
-- OS and distribution of the host running Shellside:
+- Shellwalk version or commit:
+- OS and distribution of the host running Shellwalk:
 - Python version (`python3 --version`):
 - Browser and device you connected from:
 - How it is reached (this machine, LAN, tunnel/proxy):

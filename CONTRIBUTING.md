@@ -1,17 +1,17 @@
-# Contributing to Shellside
+# Contributing to Shellwalk
 
 Thanks for taking the time. Bug reports, fixes and small improvements are all
 welcome.
 
 ## Running from source
 
-Shellside needs Linux (it spawns a real shell on a PTY) and Python 3.11 or
+Shellwalk needs Linux (it spawns a real shell on a PTY) and Python 3.11 or
 newer.
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-SHELLSIDE_HOME=$(mktemp -d) .venv/bin/python run.py --host 127.0.0.1
+SHELLWALK_HOME=$(mktemp -d) .venv/bin/python run.py --host 127.0.0.1
 ```
 
 Then open http://127.0.0.1:8022. Use `--port` if 8022 is taken.
@@ -20,14 +20,14 @@ imports.
 
 ### Where user data lives
 
-Everything Shellside writes at runtime (settings, saved commands, favorites,
+Everything Shellwalk writes at runtime (settings, saved commands, favorites,
 service choices, credentials, the supervisor's pid file) lives in one
-directory, never in the code checkout. It is `$SHELLSIDE_HOME` if set,
-otherwise `$XDG_CONFIG_HOME/shellside`, otherwise `~/.config/shellside`
+directory, never in the code checkout. It is `$SHELLWALK_HOME` if set,
+otherwise `$XDG_CONFIG_HOME/shellwalk`, otherwise `~/.config/shellwalk`
 (see `server/datahome.py`).
 
-For development, point `SHELLSIDE_HOME` at a throwaway directory as shown
-above, so you never touch the data of a Shellside you actually use.
+For development, point `SHELLWALK_HOME` at a throwaway directory as shown
+above, so you never touch the data of a Shellwalk you actually use.
 
 ## Running the tests
 
@@ -37,7 +37,7 @@ above, so you never touch the data of a Shellside you actually use.
 ```
 
 The tests start real bash sessions, so they need bash and a PTY.
-`tests/conftest.py` already sets `SHELLSIDE_HOME` to a temporary directory for
+`tests/conftest.py` already sets `SHELLWALK_HOME` to a temporary directory for
 every run. CI runs the suite on Python 3.11 to 3.14.
 
 ## Ground rules

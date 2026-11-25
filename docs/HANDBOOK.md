@@ -1,6 +1,6 @@
-# Shellside handbook
+# Shellwalk handbook
 
-How Shellside works, how to extend it, and why it is built the way it is. To
+How Shellwalk works, how to extend it, and why it is built the way it is. To
 install it, see the [README](../README.md): `bash setup.sh`, three questions.
 
 A real Linux shell in the browser, with the navigation friction removed. The
@@ -16,7 +16,7 @@ work by typing into that same shell.
 - [The guided tour](#the-guided-tour)
 - [How it fits together](#how-it-fits-together)
 - [Design notes](#design-notes)
-- [Shells that outlive the browser, and Shellside](#shells-that-outlive-the-browser-and-shellside)
+- [Shells that outlive the browser, and Shellwalk](#shells-that-outlive-the-browser-and-shellwalk)
 - [Drag and drop: upload and download](#drag-and-drop-upload-and-download)
 - [On a phone](#on-a-phone)
 - [The command assistant](#the-command-assistant)
@@ -35,7 +35,7 @@ work by typing into that same shell.
 
 ## The guided tour
 
-The first time a device opens Shellside, a short tour walks through the
+The first time a device opens Shellwalk, a short tour walks through the
 interface one element at a time: terminal, tabs, path, files, menus, drag and
 drop, saved commands, the assistant, settings. A phone gets its own steps (the
 ☰ drawer, the key bar). It is remembered per browser, and **Guide** in the
@@ -70,7 +70,7 @@ at the prompt for you to press Enter — including destructive ones.
 
 ### cwd comes from `/proc`, never from parsing stdin
 
-Watching the `cd` commands as they are typed cannot be made to work. Shellside
+Watching the `cd` commands as they are typed cannot be made to work. Shellwalk
 reads `/proc/<foreground-pgid>/cwd` — the kernel's own
 answer — via `os.tcgetpgrp()` on the PTY master. Tested side by side:
 
@@ -131,7 +131,7 @@ network that blocks everything except your tunnel.
 PTY sessions outlive their websocket. A phone that drops its connection
 reconnects to the same shell and gets its scrollback replayed, which on a phone
 is the difference between usable and not. See *Shells that outlive the
-browser, and Shellside* below for what survives what.
+browser, and Shellwalk* below for what survives what.
 
 Two smaller judgement calls, both reversible in one line: dotfiles are filtered
 before the directory check, so `.git` and `.venv` don't clutter the panel; and
@@ -140,21 +140,21 @@ handlers* below), so there is no separate visibility list to keep in step.
 
 ---
 
-## Shells that outlive the browser, and Shellside
+## Shells that outlive the browser, and Shellwalk
 
 | what happens                                   | plain shell | shell in tmux |
 | ---------------------------------------------- | ----------- | ------------- |
 | phone locked, network drops, page reloaded     | survives, tab reattaches | survives, tab reattaches |
 | browser closed or killed                       | survives, every tab comes back on the next browser, any device | same |
-| a Shellside tab closed (✕)                     | **ends** — on every device | **ends** — on every device |
-| Shellside restarted or updated                 | **ends**    | survives, tab reattaches |
+| a Shellwalk tab closed (✕)                     | **ends** — on every device | **ends** — on every device |
+| Shellwalk restarted or updated                 | **ends**    | survives, tab reattaches |
 | the machine reboots                            | ends        | ends          |
 
 A long job — a build, an rsync, a Claude Code session — keeps running while
 the phone sleeps either way.
 
 **The open tabs live on the server** (`/api/workspace`), not in the browser.
-Close the browser with three tabs and the next browser to open Shellside —
+Close the browser with three tabs and the next browser to open Shellwalk —
 the phone, another computer — opens with those three, names included; close
 it with none left running and it opens with one new shell. Closing a tab is
 different: it ends that shell, and any other browser showing it drops the tab
@@ -165,16 +165,16 @@ on the server, including ones no tab shows, with its folder and what it is
 running. *Open* puts it back in a tab; *End* closes it.
 
 **Settings › General › Keep shells in tmux** starts each new shell inside
-Shellside's own tmux server (`tmux -L shellside`, config in
+Shellwalk's own tmux server (`tmux -L shellwalk`, config in
 `server/shell/tmux.conf`). The browser tab keeps the shell's id, so after a
-Shellside restart it reconnects to the same shell without you doing anything.
+Shellwalk restart it reconnects to the same shell without you doing anything.
 The config hides tmux completely: no status bar, no prefix key, and no
 alternate screen, so scrolling on a phone works as before. Your own tmux
 sessions and `~/.tmux.conf` are not touched. Needs `sudo apt install tmux`.
 
-With tmux the shell is not Shellside's child, so the idle check and the
+With tmux the shell is not Shellwalk's child, so the idle check and the
 folder panel read the pane's shell from `/proc/<pid>/stat` (its terminal's
-foreground process group) instead of `tcgetpgrp()` on Shellside's own PTY.
+foreground process group) instead of `tcgetpgrp()` on Shellwalk's own PTY.
 
 ---
 
@@ -257,7 +257,7 @@ set up.
 
 How it works:
 
-- Shellside starts bash as `bash --rcfile server/shell/bashrc -i`. That file
+- Shellwalk starts bash as `bash --rcfile server/shell/bashrc -i`. That file
   loads `/etc/bash.bashrc` and `~/.bashrc` first, exactly as plain `bash -i`
   would, then defines bash's `command_not_found_handle` and the `,` command.
   Other shells start as before, without the assistant.
@@ -270,7 +270,7 @@ How it works:
   loopback connections carrying a token derived for that shell from a key in
   `auth/assist_key` in the data folder. Loopback alone would not do: behind a tunnel,
   internet traffic arrives from 127.0.0.1 too.
-- Suggestions are printed as OSC 8 hyperlinks with a `shellside-paste:` URI;
+- Suggestions are printed as OSC 8 hyperlinks with a `shellwalk-paste:` URI;
   the browser terminal turns a click on one into a paste. Being real output,
   they are in the scrollback after a reconnect.
 
@@ -299,7 +299,7 @@ A new context-menu action, in full:
                         "match": {"extensions": [".iso", ".img"]}}
       command.txt      sha256sum {file_path}
 
-Your own actions go in the data folder (`~/.config/shellside/context_menu/…`),
+Your own actions go in the data folder (`~/.config/shellwalk/context_menu/…`),
 which an update never touches; the ones under `app/` ship with the code. A
 folder of yours with the same id as a shipped one takes its place. Reload from
 **Settings › Reload config from disk**, or just navigate — the mtime scan picks
@@ -345,13 +345,13 @@ changes, ever.
 
 ## Setup and the command line
 
-`bash setup.sh` builds the virtualenv and then runs `./shellside setup`, which
+`bash setup.sh` builds the virtualenv and then runs `./shellwalk setup`, which
 asks:
 
 1. **Who can open it:** only this machine (`127.0.0.1`), or every device on the
    local network (`0.0.0.0`).
 2. **Port:** 8022 by default.
-3. **Start at boot:** writes `~/.config/systemd/user/shellside.service` for this
+3. **Start at boot:** writes `~/.config/systemd/user/shellwalk.service` for this
    checkout and runs `loginctl enable-linger`, so it starts at boot without
    anyone logged in. No sudo; if lingering cannot be enabled without it, setup
    prints the one command to run.
@@ -363,19 +363,19 @@ defaults), for scripted installs. Run it again at any time to change them.
 
 | command | what it does |
 |---|---|
-| `./shellside` | start it by hand (`--host`, `--port` override the saved values for one run) |
-| `./shellside setup` | the questions above |
-| `./shellside status` | address, port, password, tunnel mode, autostart, running or not |
-| `./shellside link` | the sign-in link for a browser on this machine ([below](#if-you-lock-yourself-out)) |
-| `./shellside reset-auth` | back to the unconfigured state ([below](#the-setup-password-and-starting-over)) |
+| `./shellwalk` | start it by hand (`--host`, `--port` override the saved values for one run) |
+| `./shellwalk setup` | the questions above |
+| `./shellwalk status` | address, port, password, tunnel mode, autostart, running or not |
+| `./shellwalk link` | the sign-in link for a browser on this machine ([below](#if-you-lock-yourself-out)) |
+| `./shellwalk reset-auth` | back to the unconfigured state ([below](#the-setup-password-and-starting-over)) |
 
-These run in a shell on the machine, as the user Shellside runs as: at the
-keyboard, over SSH, or in a Shellside terminal you are already signed in to.
+These run in a shell on the machine, as the user Shellwalk runs as: at the
+keyboard, over SSH, or in a Shellwalk terminal you are already signed in to.
 Nothing on the web side can call them. Being able to run them already means
 having that user's access, which is also all it takes to edit the files they
 change.
 
-As a service, the logs are in `journalctl --user -u shellside -f`.
+As a service, the logs are in `journalctl --user -u shellwalk -f`.
 
 ---
 
@@ -400,7 +400,7 @@ typo was enough to switch every check off silently.
     anything else                            →  denied
 
 **Cross-site requests.** Every websocket and every POST, PUT, PATCH or
-DELETE must come from one of Shellside's own pages: its `Origin` header has to
+DELETE must come from one of Shellwalk's own pages: its `Origin` header has to
 match the address the request was sent to (`Host`, or `X-Forwarded-Host` when
 a proxy rewrites `Host`). Browsers set `Origin` themselves and a page cannot
 forge it, so another website you happen to visit cannot open
@@ -424,15 +424,15 @@ to reach local services: the browser still sends that website's name as
 `Host`. Binding `0.0.0.0` switches loopback trust off entirely.
 
 That still leaves a forwarder that adds no headers (`socat`, a raw TCP tunnel)
-reached as `localhost`. If Shellside is reachable through any tunnel, turn on
-**tunnel mode**: answer yes to the tunnel question in `./shellside setup`, or
+reached as `localhost`. If Shellwalk is reachable through any tunnel, turn on
+**tunnel mode**: answer yes to the tunnel question in `./shellwalk setup`, or
 switch it in Settings › Access; setting an **internet password** turns it on
 too. Then loopback trust is off altogether and every browser needs a session,
 including one on the machine itself (it signs in once with
-`./shellside link`), as a second layer behind whatever protects the tunnel.
+`./shellwalk link`), as a second layer behind whatever protects the tunnel.
 
 Cookies are `HttpOnly`, `SameSite=Lax`, and `Secure` whenever the browser
-reached Shellside over HTTPS.
+reached Shellwalk over HTTPS.
 
 A denied HTTP page load redirects to `/auth/login`; a denied API call gets a
 plain 401; a refused cross-site request gets 403. A denied websocket is
@@ -462,7 +462,7 @@ place.
 ### The setup password, and starting over
 
 A headless machine has no browser of its own, so the first sign-in has to
-come from another device. When setup opens Shellside to the LAN and no
+come from another device. When setup opens Shellwalk to the LAN and no
 password exists yet, it prints a **setup password**:
 
 - 8 characters, without look-alikes (`0 O 1 l I`), stored only as a hash;
@@ -473,22 +473,22 @@ password exists yet, it prints a **setup password**:
 
 Signing in with it leads to one page only: choose the real LAN password.
 That session opens nothing else, and once the password is saved the setup
-password is gone. If it expires unused, run `./shellside setup` again for a
+password is gone. If it expires unused, run `./shellwalk setup` again for a
 new one.
 
 Removing the LAN password in Settings › Access, or running
-`./shellside reset-auth`, returns to the unconfigured state: no password,
+`./shellwalk reset-auth`, returns to the unconfigured state: no password,
 "LAN with no password" off, every browser signed out, and `127.0.0.1` only
 from the next start. Devices enrolled with an internet password are kept;
 revoke them in Settings.
 
 ### If you lock yourself out
 
-A fresh recovery link is generated every boot. Started by hand, Shellside
+A fresh recovery link is generated every boot. Started by hand, Shellwalk
 prints it in its terminal; as a service it keeps it out of the journal, and
-`./shellside link` prints it (`--open` also opens it):
+`./shellwalk link` prints it (`--open` also opens it):
 
-    Shellside is up. Signed out? This link signs you back in from this
+    Shellwalk is up. Signed out? This link signs you back in from this
     machine, no password:
         http://127.0.0.1:8022/auth/local?token=...
 
@@ -514,16 +514,16 @@ attempt was rejected even with the correct password.
 
 ## Reaching it from the internet
 
-Keep Shellside on loopback and put a tunnel in front of it, for example a
+Keep Shellwalk on loopback and put a tunnel in front of it, for example a
 Cloudflare tunnel:
 
-    ./shellside setup --local --tunnel        # or answer the questions
+    ./shellwalk setup --local --tunnel        # or answer the questions
     cloudflared tunnel --url http://127.0.0.1:8022
 
 Then:
 
 - **Protect the tunnel itself.** Put the hostname behind an access policy
-  (Cloudflare Zero Trust Access, or your proxy's own login). Shellside's login
+  (Cloudflare Zero Trust Access, or your proxy's own login). Shellwalk's login
   is the second layer, not the only one.
 - **Tunnel mode on**, which the `--tunnel` answer does: requests arriving
   through the tunnel come from `127.0.0.1`, and must not be trusted for it.
@@ -531,7 +531,7 @@ Then:
   number of uses and an expiry, and each device that uses it gets its own
   rotating credential, which you can revoke one by one. The LAN password never
   works through a tunnel.
-- If the browser's address is not what reaches Shellside as `Host` or
+- If the browser's address is not what reaches Shellwalk as `Host` or
   `X-Forwarded-Host`, add it to `allowed_origins` (see
   [How trust works](#how-trust-works)).
 
@@ -604,7 +604,7 @@ it) for those.
 A checkout made with `git clone` updates the usual way:
 
     git pull
-    systemctl --user restart shellside    # or stop and start ./shellside
+    systemctl --user restart shellwalk    # or stop and start ./shellwalk
 
 Nothing you changed lives in the code folder, so a pull never conflicts with
 your settings (see [Where your data lives](#where-your-data-lives)).
@@ -704,8 +704,8 @@ project size is not limited by memory.
 
 ## Where your data lives
 
-Everything Shellside writes lives in one folder outside the code:
-`~/.config/shellside` (or `$XDG_CONFIG_HOME/shellside`; `$SHELLSIDE_HOME`
+Everything Shellwalk writes lives in one folder outside the code:
+`~/.config/shellwalk` (or `$XDG_CONFIG_HOME/shellwalk`; `$SHELLWALK_HOME`
 overrides both). The code folder can be pulled, replaced or deleted without
 losing anything.
 
@@ -727,7 +727,7 @@ left where they were.
 ## Layout
 
     run.py           supervisor: starts the app, applies updates, restarts it
-    shellside        launcher: runs run.py with the checkout's virtualenv
+    shellwalk        launcher: runs run.py with the checkout's virtualenv
     setup.sh         builds the virtualenv, then runs the guided setup
 
     server/          FastAPI backend
@@ -736,7 +736,7 @@ left where they were.
       auth.py          passwords, sessions, setup password, rate limits
       auth_routes.py   /auth/* and Settings › Access
       devices.py       devices enrolled through the internet password
-      wizard.py        ./shellside setup, status, link, reset-auth
+      wizard.py        ./shellwalk setup, status, link, reset-auth
       datahome.py      where user data lives, first-run seeding and migration
       pty_session.py   PTY, cwd detection, idle guard, session registry
       fsview.py        directory listing and file classification

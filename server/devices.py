@@ -39,7 +39,7 @@ from typing import Any
 from . import auth
 
 DEVICES_FILE = "devices.json"
-DEVICE_COOKIE = "shellside_device"
+DEVICE_COOKIE = "shellwalk_device"
 DEVICE_MAX_AGE = 60 * 60 * 24 * 180        # 180 days, same reasoning as the
                                             # session cookie: this is a home
                                             # appliance, not a bank.

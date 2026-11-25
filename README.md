@@ -1,11 +1,11 @@
-<p align="center"><img src="docs/logo.png" alt="Shellside logo" width="280"></p>
+<p align="center"><img src="docs/logo.png" alt="Shellwalk logo" width="280"></p>
 
-# Shellside
+# Shellwalk
 
 **Use your headless Linux machine from any browser: a real terminal, with a file
 manager that follows it.**
 
-Shellside runs on the Linux machine that has no screen — a home server, a
+Shellwalk runs on the Linux machine that has no screen — a home server, a
 Raspberry Pi, the PC in the corner — and you open it from a browser on any other
 device: a Windows or Mac laptop, a tablet, your phone. You get a real shell on
 that machine (vim, htop, `tail -f`, ssh all work), and right above it, the files
@@ -16,7 +16,7 @@ of the folder you are in.
 ## What you can do with it
 
 - **Move around without typing `cd` and `ls`.** The bar at the top shows where
-  you are and the files around you. Click a folder and Shellside runs the `cd`
+  you are and the files around you. Click a folder and Shellwalk runs the `cd`
   in your terminal for you; click a part of the path to go back. It works the
   other way too: type `cd` in the terminal and the panel follows by itself.
   Star the folders you use most and find them under **Favourites**.
@@ -27,9 +27,9 @@ of the folder you are in.
   desktop to download it. Drop files from your computer onto the panel or the
   terminal to upload them into the folder you are in. No `scp`, no second program.
 
-  ![A picture dragged from a Windows folder into Shellside lands on the Linux server; a file dragged out of Shellside lands in the Windows folder](docs/drag-and-drop.gif)
+  ![A picture dragged from a Windows folder into Shellwalk lands on the Linux server; a file dragged out of Shellwalk lands in the Windows folder](docs/drag-and-drop.gif)
 
-  *Two different machines: on the left, Shellside in a browser on a Windows PC,
+  *Two different machines: on the left, Shellwalk in a browser on a Windows PC,
   showing a folder on the Linux server; on the right, a folder on the Windows PC
   itself. Files go both ways with a drag.*
 
@@ -65,14 +65,14 @@ of the folder you are in.
 
 ## Read this before you install it
 
-**Shellside hands out a shell on the host it runs on. Anyone who reaches it and
+**Shellwalk hands out a shell on the host it runs on. Anyone who reaches it and
 gets past the login has whatever your user has.** That is the entire point of the
 tool, and it is also its threat model. Treat it like `sshd`, not like a web app.
 
 What it does about that:
 
 - **Binds `127.0.0.1` by default.** The LAN address answers only after you choose
-  it in `./shellside setup`, and only while a password protects it: with no LAN
+  it in `./shellwalk setup`, and only while a password protects it: with no LAN
   password (and no live setup password) it falls back to loopback at startup.
 - **One unconditional gate**, `server/gate.py`, in front of every HTTP route and
   every websocket, checked before the PTY or a directory listing is ever touched.
@@ -86,7 +86,7 @@ What it does about that:
 - **An internet password** for enrolling devices through a tunnel: limited uses,
   an expiry, and a revocable credential per device.
 - **A recovery link**, new at every boot, valid from this machine only
-  (`./shellside link` prints it; it never goes into the logs), so
+  (`./shellwalk link` prints it; it never goes into the logs), so
   physical access to the machine always gets you back in.
 - Previewed `.html` and `.svg` are served with `Content-Security-Policy: sandbox`,
   or a previewed file could run script on the origin that owns your shell.
@@ -98,7 +98,7 @@ What it does **not** do, and what you should assume:
   reverse proxy you trust) in front of loopback. Over plain LAN HTTP the password
   and session cookie cross the wire in clear.
 - **No sandbox, no privilege separation.** The shell runs as the user that
-  started Shellside. Do not run it as root.
+  started Shellwalk. Do not run it as root.
 - **Not audited**, by me or anyone else. It is a home-lab appliance written for
   its author's machine, published because it may be useful. Exposing it directly
   to the internet is your risk to take, and I would not.
@@ -111,8 +111,8 @@ What it does **not** do, and what you should assume:
 ## Quick start
 
 ```bash
-git clone https://github.com/niccolostefani93-spec/shellside
-cd shellside
+git clone https://github.com/niccolostefani93-spec/shellwalk
+cd shellwalk
 bash setup.sh
 ```
 
@@ -127,7 +127,7 @@ If you chose the local network, it prints the address to open from your phone or
 laptop and a **one-time setup password**. Sign in with it once (within 30
 minutes) and you are asked to choose your real password; the setup password then
 stops working. Nothing is ever exposed to the network without a password: if
-none is set, Shellside listens on `127.0.0.1` whatever the settings say.
+none is set, Shellwalk listens on `127.0.0.1` whatever the settings say.
 
 Open the address it prints: a short guided tour shows the interface the first
 time (**Guide** in the top bar brings it back).
@@ -135,22 +135,22 @@ time (**Guide** in the top bar brings it back).
 Afterwards:
 
 ```bash
-./shellside                # start it by hand (if you skipped autostart)
-./shellside status         # what is configured, and whether it runs
-./shellside setup          # change the answers
-./shellside reset-auth     # forgot the password: back to the unconfigured state
-./shellside link           # sign-in link for a browser on this machine
+./shellwalk                # start it by hand (if you skipped autostart)
+./shellwalk status         # what is configured, and whether it runs
+./shellwalk setup          # change the answers
+./shellwalk reset-auth     # forgot the password: back to the unconfigured state
+./shellwalk link           # sign-in link for a browser on this machine
 ```
 
 These run in a shell on the machine itself (at the keyboard, over SSH, or in a
-Shellside terminal you are already signed in to). Nothing on the web side can
+Shellwalk terminal you are already signed in to). Nothing on the web side can
 trigger them: being able to run them already means having that user's access.
 
-The fourth setup question asks whether you will reach Shellside from the
+The fourth setup question asks whether you will reach Shellwalk from the
 internet through a tunnel or reverse proxy. Such a tunnel connects from
 `127.0.0.1`, so answering yes switches on *tunnel mode*: requests from
 `127.0.0.1` are no longer trusted by themselves, and a browser on the machine
-signs in once with the link from `./shellside link`.
+signs in once with the link from `./shellwalk link`.
 
 Pass an interpreter to pick one: `bash setup.sh python3.13`. To reach it from
 outside your network, put a tunnel in front of loopback rather than opening the
@@ -167,7 +167,7 @@ port (see *Deploying behind Cloudflare* in the full documentation).
 Plenty of projects put a terminal in a browser. The interesting part here is what
 sits next to it.
 
-**The panel reads the kernel, not your keystrokes.** Shellside asks
+**The panel reads the kernel, not your keystrokes.** Shellwalk asks
 `os.tcgetpgrp()` for the PTY's foreground process group and reads
 `/proc/<pgid>/cwd`. That is the kernel's own answer, so it is right in the cases
 that defeat parsing what you typed:
@@ -198,13 +198,13 @@ quoted   →  rm -rf '/tmp/a b; rm -rf ~'    ← what you meant
 ```
 
 **Injection refuses to type into a running program.** If vim owns the terminal,
-`rm -rf {file_path}` would be typed *into vim*. Shellside checks that the shell
+`rm -rf {file_path}` would be typed *into vim*. Shellwalk checks that the shell
 itself holds the foreground group first.
 
 **Sessions outlive their websocket.** A phone that drops its connection
 reconnects to the same shell and gets its scrollback replayed.
 
-<p align="center"><img src="docs/phone.png" width="300" alt="Shellside on a phone: the folder panel above the terminal, and a row of keys a phone keyboard lacks (Esc, Tab, Ctrl, Alt, arrows)"></p>
+<p align="center"><img src="docs/phone.png" width="300" alt="Shellwalk on a phone: the folder panel above the terminal, and a row of keys a phone keyboard lacks (Esc, Tab, Ctrl, Alt, arrows)"></p>
 
 **Tabs are real, separate shells, not a visual trick.** Each one is its own PTY
 with its own working directory. The folder panel always shows whichever tab is
@@ -252,10 +252,10 @@ Core code never imports a connector.
 
 ```bash
 git pull
-systemctl --user restart shellside     # or stop and start ./shellside
+systemctl --user restart shellwalk     # or stop and start ./shellwalk
 ```
 
-Your settings, passwords and saved commands live in `~/.config/shellside`, not in
+Your settings, passwords and saved commands live in `~/.config/shellwalk`, not in
 the code folder, so a pull never touches them.
 
 For a headless machine administered from a phone there is also
@@ -270,7 +270,7 @@ shell (unless you keep shells in tmux, Settings › General).
 
 ## Comparison
 
-| | Shellside | ttyd / Wetty / gotty | code-server | filebrowser |
+| | Shellwalk | ttyd / Wetty / gotty | code-server | filebrowser |
 |---|---|---|---|---|
 | Real PTY | yes | yes | yes | no |
 | File panel tracking the shell's cwd | yes | no | no | n/a |
@@ -278,7 +278,7 @@ shell (unless you keep shells in tmux, Settings › General).
 | Weight | one Python process | one process | heavy | light |
 
 If you want a terminal in a tab, ttyd is smaller and older and you should use it.
-Shellside is for when you keep wanting the file manager and the shell to be the
+Shellwalk is for when you keep wanting the file manager and the shell to be the
 same thing.
 
 ---
@@ -306,11 +306,11 @@ issue to discuss any of them before you start.
    network is the hardest part today: you set up the tunnel yourself. Setup will
    walk you through Tailscale or a Cloudflare tunnel, step by step.
 2. **HTTPS on the local network.** Over plain LAN HTTP the password and the
-   session cookie cross the network in clear. Shellside will serve HTTPS on its
+   session cookie cross the network in clear. Shellwalk will serve HTTPS on its
    own, so the LAN is as safe as the tunnel.
 3. **Recipes.** Ready-made packs of commands and click actions (Docker, git,
    Claude Code, media servers…) that you copy into `app/`. A good first
-   contribution: a recipe needs no change to Shellside itself.
+   contribution: a recipe needs no change to Shellwalk itself.
 4. **Notifications.** A message on your phone (through ntfy or a webhook) when a
    long command finishes, or when Claude Code is waiting for you.
 
@@ -326,6 +326,6 @@ rather than opening a public issue.
 
 ## How it was made
 
-Shellside was written with substantial help from AI coding assistants (Claude).
+Shellwalk was written with substantial help from AI coding assistants (Claude).
 Every change was reviewed, run and tested by the maintainer, and the security
 design is described in full in the handbook so you can judge it yourself.

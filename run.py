@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Shellside — supervisor.
+"""Shellwalk — supervisor.
 
-    ./shellside                    # start it (settings from ./shellside setup)
-    ./shellside setup              # guided setup: LAN or not, port, autostart
-    ./shellside reset-auth         # forgot the password: back to unconfigured
-    ./shellside link               # sign-in link for a browser on this machine
+    ./shellwalk                    # start it (settings from ./shellwalk setup)
+    ./shellwalk setup              # guided setup: LAN or not, port, autostart
+    ./shellwalk reset-auth         # forgot the password: back to unconfigured
+    ./shellwalk link               # sign-in link for a browser on this machine
     python3 run.py --host 0.0.0.0  # the same, by hand (needs a LAN password)
 
 This process is a supervisor, not the app. It runs the application as a child
@@ -51,12 +51,12 @@ def _data_home() -> Path:
     and the saved bind address must still be found when server/ cannot be
     imported. tests/test_core.py checks that the two copies agree.
     """
-    explicit = os.environ.get("SHELLSIDE_HOME", "").strip()
+    explicit = os.environ.get("SHELLWALK_HOME", "").strip()
     if explicit:
         return Path(explicit).expanduser().absolute()
     xdg = os.environ.get("XDG_CONFIG_HOME", "").strip()
     base = Path(xdg) if xdg and os.path.isabs(xdg) else Path.home() / ".config"
-    return base / "shellside"
+    return base / "shellwalk"
 
 
 DATA_HOME = _data_home()
@@ -382,7 +382,7 @@ def warn_about_exposure(host: str) -> None:
     """
     if host in ("127.0.0.1", "localhost", "::1"):
         print(f"{DIM}  Listening on this machine only (or through an SSH tunnel). "
-              f"./shellside setup opens it to the LAN.{OFF}\n")
+              f"./shellwalk setup opens it to the LAN.{OFF}\n")
         return
 
     try:
@@ -407,7 +407,7 @@ def warn_about_exposure(host: str) -> None:
         # Only reachable with a live setup password (see effective_host()).
         print(
             f"\n{DIM}  Bound to {host}. No LAN password yet: the setup password "
-            "printed by ./shellside setup\n"
+            "printed by ./shellwalk setup\n"
             "  works from one device on your network, once, and then asks for "
             f"the real password.{OFF}\n"
         )
@@ -468,7 +468,7 @@ def _offer_auto_setup() -> bool:
         confirming a thing you already intended to do.
       - systemd, cron, or any other non-interactive start: there is no one to
         ask, and a prompt with nobody to answer it just hangs forever. This
-        path only runs if SHELLSIDE_AUTO_SETUP=1 (or --auto-setup) was set
+        path only runs if SHELLWALK_AUTO_SETUP=1 (or --auto-setup) was set
         explicitly beforehand — permission given in advance, in writing,
         rather than assumed because no one was watching.
 
@@ -477,7 +477,7 @@ def _offer_auto_setup() -> bool:
     verifies the result by actually importing each package. Duplicating that
     here in Python would just be a second copy to keep in sync.
     """
-    auto = os.environ.get("SHELLSIDE_AUTO_SETUP") == "1" or "--auto-setup" in sys.argv[1:]
+    auto = os.environ.get("SHELLWALK_AUTO_SETUP") == "1" or "--auto-setup" in sys.argv[1:]
     interactive = sys.stdin.isatty() and sys.stdout.isatty()
 
     if not auto and not interactive:
@@ -499,7 +499,7 @@ def _offer_auto_setup() -> bool:
 
     print()
     result = subprocess.run(["bash", str(ROOT / "setup.sh"), "--rebuild", sys.executable],
-                            cwd=str(ROOT), env={**os.environ, "SHELLSIDE_NO_WIZARD": "1"})
+                            cwd=str(ROOT), env={**os.environ, "SHELLWALK_NO_WIZARD": "1"})
     if result.returncode != 0:
         print(f"\n{RED}  Setup did not finish cleanly (exit {result.returncode}). "
               f"See the output above.{OFF}")
@@ -568,7 +568,7 @@ def preflight() -> bool:
 
     venv = ROOT / ".venv"
     print(f"\n{RED}  Missing Python packages: {', '.join(missing)}{OFF}")
-    print(f"{DIM}  Shellside cannot start without them.{OFF}\n")
+    print(f"{DIM}  Shellwalk cannot start without them.{OFF}\n")
 
     # A successful install ends with relaunch_into_venv(), which replaces this
     # process outright — control never returns here on that path. It returns
@@ -607,9 +607,9 @@ def run_app(host: str, port: int) -> int:
     ]
     environment = {
         **os.environ,
-        "SHELLSIDE_SUPERVISED": "1",
-        "SHELLSIDE_BIND_HOST": host,        # the gate's loopback-trust rule
-        "SHELLSIDE_PORT": str(port),        # for the printed recovery link
+        "SHELLWALK_SUPERVISED": "1",
+        "SHELLWALK_BIND_HOST": host,        # the gate's loopback-trust rule
+        "SHELLWALK_PORT": str(port),        # for the printed recovery link
     }
     process = subprocess.Popen(command, cwd=str(ROOT), env=environment)
     record_self(child_pid=process.pid)
@@ -673,7 +673,7 @@ def effective_host(requested: str) -> str:
     _refused_hosts.add(requested)
     print(f"\n{RED}  Not listening on {requested}: no LAN password is set.{OFF}\n"
           f"{DIM}  Without one, anyone on your network would reach a shell here, so "
-          f"Shellside stays on\n  127.0.0.1. Run ./shellside setup to open it to the "
+          f"Shellwalk stays on\n  127.0.0.1. Run ./shellwalk setup to open it to the "
           f"LAN with a setup password.{OFF}\n", flush=True)
     return "127.0.0.1"
 
@@ -725,10 +725,10 @@ def run_command(name: str, rest: list[str]) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Shellside")
+    parser = argparse.ArgumentParser(description="Shellwalk")
     parser.add_argument("--host", default=None,
                         help="Overrides the saved bind_host (settings.json in "
-                             "$SHELLSIDE_HOME, by default ~/.config/shellside) "
+                             "$SHELLWALK_HOME, by default ~/.config/shellwalk) "
                              "for this run.")
     parser.add_argument("--port", type=int, default=None,
                         help="Overrides the saved port (default 8022) for this run.")
@@ -737,7 +737,7 @@ def main() -> int:
     parser.add_argument("--auto-setup", action="store_true",
                         help="Install missing dependencies without asking. "
                              "For non-interactive starts (systemd, cron); "
-                             "same effect as SHELLSIDE_AUTO_SETUP=1.")
+                             "same effect as SHELLWALK_AUTO_SETUP=1.")
     # `kill`, `systemctl stop` with the default signal, a shutdown: stop the
     # app child the same way Ctrl+C does, instead of dying and leaving it
     # running on the port with nobody supervising it.
@@ -784,14 +784,14 @@ def _run_supervised(args: argparse.Namespace, argv: list[str]) -> int:
     warn_about_exposure(host)
     location = (f"http://127.0.0.1:{args.port}" if host in LOOPBACK_HOSTS
                 else f"http://{host}:{args.port}")
-    print(f"{BANNER}  Shellside{OFF} {DIM}{location}{OFF}")
+    print(f"{BANNER}  Shellwalk{OFF} {DIM}{location}{OFF}")
     if host == "0.0.0.0":
         print(f"{DIM}  Also reachable on this machine's LAN address.{OFF}")
     print()
 
     if args.no_supervisor:
-        os.environ["SHELLSIDE_BIND_HOST"] = host
-        os.environ["SHELLSIDE_PORT"] = str(args.port)
+        os.environ["SHELLWALK_BIND_HOST"] = host
+        os.environ["SHELLWALK_PORT"] = str(args.port)
         import uvicorn
         uvicorn.run("server.main:app", host=host, port=args.port,
                     log_level="warning")

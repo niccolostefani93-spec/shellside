@@ -1,4 +1,4 @@
-// Shellside — application wiring.
+// Shellwalk — application wiring.
 
 import { api } from "./api.js";
 import { Navigator } from "./navigator.js";
@@ -61,10 +61,10 @@ let navigator = null;
 
 // The list of tabs lives on the server (/api/workspace), not in the
 // browser: closing the browser leaves every shell running, and the next
-// browser to open Shellside — phone or computer — gets the same tabs back.
+// browser to open Shellwalk — phone or computer — gets the same tabs back.
 // Closing a *tab* ends its shell for good. Only which tab was on screen is
 // remembered per browser, so a reload lands where you were.
-const ACTIVE_KEY = "shellside_active_session";
+const ACTIVE_KEY = "shellwalk_active_session";
 
 let tabs = [];
 let activeTabId = null;
@@ -515,7 +515,7 @@ function wireDragAndDrop() {
   let marked = null;
 
   const isFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
-  const PATH_TYPE = "application/x-shellside-path";
+  const PATH_TYPE = "application/x-shellwalk-path";
   const isPathDrag = (event) => Array.from(event.dataTransfer?.types || []).includes(PATH_TYPE);
   const overTerminal = (event) => event.target instanceof Node && dom.terminalWrap.contains(event.target);
 
@@ -600,7 +600,7 @@ function wireDragAndDrop() {
 // panel open from the tab bar's \u2630 button and close again as soon as the
 // keyboard comes up, because then every line of terminal counts.
 
-const FONT_KEY = "shellside.fontSize";
+const FONT_KEY = "shellwalk.fontSize";
 const isTouch = window.matchMedia("(pointer: coarse)").matches;
 
 function deviceFontSize() {
@@ -855,7 +855,7 @@ function describeAge(seconds) {
 
 /**
  * Every shell still alive on the server, so one whose tab was lost (browser
- * killed, tab closed by accident, Shellside restarted with tmux on) can be
+ * killed, tab closed by accident, Shellwalk restarted with tmux on) can be
  * opened again.
  */
 async function openSessionList() {
@@ -923,8 +923,8 @@ async function openSessionList() {
       el("div", { class: "rows" }, rows.length ? rows
         : [el("div", { class: "empty" }, [el("b", { text: "No shells are running." })])]),
       el("div", { class: "field-note", text: data.tmux_available
-        ? "Closing a tab ends its shell. Closing the browser keeps them all: the next browser, on any device, opens the same tabs. To keep them through a Shellside restart or update too, turn on Settings \u203a General \u203a Keep shells in tmux."
-        : "Closing a tab ends its shell. Closing the browser keeps them all: the next browser, on any device, opens the same tabs. They do not survive a Shellside restart unless you install tmux (sudo apt install tmux) and turn on Settings \u203a General \u203a Keep shells in tmux." }),
+        ? "Closing a tab ends its shell. Closing the browser keeps them all: the next browser, on any device, opens the same tabs. To keep them through a Shellwalk restart or update too, turn on Settings \u203a General \u203a Keep shells in tmux."
+        : "Closing a tab ends its shell. Closing the browser keeps them all: the next browser, on any device, opens the same tabs. They do not survive a Shellwalk restart unless you install tmux (sudo apt install tmux) and turn on Settings \u203a General \u203a Keep shells in tmux." }),
     ]),
     footer: sheetFoot([
       el("button", { class: "btn btn--primary", text: "Close", onClick: () => dismissSheet() }),
@@ -1117,7 +1117,7 @@ function renderTopbar() {
         }));
         return chip;
       }),
-    el("button", { class: "chip", id: "guide-chip", title: "A short tour of what Shellside can do",
+    el("button", { class: "chip", id: "guide-chip", title: "A short tour of what Shellwalk can do",
                    onClick: () => openTour() }, [
       el("span", { class: "icon", text: "?" }),
       el("span", { text: "Guide" }),
@@ -1629,8 +1629,8 @@ async function main() {
   if (boot.version) {
     // Visible proof of which build is answering, without spending screen space.
     document.getElementById("proc").title =
-      `Shellside ${boot.version} \u2014 what currently owns the terminal`;
-    document.getElementById("brand").title = `Shellside ${boot.version} on GitHub`;
+      `Shellwalk ${boot.version} \u2014 what currently owns the terminal`;
+    document.getElementById("brand").title = `Shellwalk ${boot.version} on GitHub`;
   }
 
   Object.assign(state, {
