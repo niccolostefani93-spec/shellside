@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <title>Sign in — Shellside</title>
+<link rel="icon" type="image/png" href="/static/img/favicon.png">
+<link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap"
       rel="stylesheet" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="/static/css/app.css">
@@ -14,9 +16,8 @@
     width: 100%; max-width: 340px; background: var(--panel);
     border: 1px solid var(--rule); border-radius: 3px; padding: 28px 26px;
   }
-  .mark { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
-  .mark .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
-  .mark span { color: var(--amber); font-weight: 700; letter-spacing: 0.04em; }
+  .mark { display: flex; justify-content: center; margin: -6px 0 18px; }
+  .mark img { width: 160px; height: auto; }
   .field { margin-bottom: 14px; }
   .msg { min-height: 18px; font-size: 12px; margin-top: 10px; color: var(--danger); }
   .msg.info { color: var(--ink-faint); }
@@ -25,7 +26,7 @@
 </head>
 <body>
 <div class="card">
-  <div class="mark"><i class="dot"></i><span>SHELLSIDE</span></div>
+  <div class="mark"><img src="/static/img/logo.png" alt="Shellside" width="160" height="153"></div>
 
   <div id="no-password" hidden>
     <p style="color:var(--ink-dim);font-size:13px;margin-top:0;">

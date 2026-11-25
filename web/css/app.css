@@ -103,6 +103,26 @@ button { cursor: pointer; }
   min-width: 0;
 }
 .topbar-side::-webkit-scrollbar { display: none; }
+
+/* The name, left of the saved commands. Hidden on phones (see responsive). */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  padding-right: 10px;
+  border-right: 1px solid var(--rule);
+  color: var(--ink-dim);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: color var(--speed);
+}
+.brand img { display: block; height: 24px; width: auto; opacity: 0.85; }
+.brand:hover { color: var(--amber); }
+.brand:hover img { opacity: 1; }
+/* With the name first, the saved commands take the middle and stay at its left. */
+#topbar-commands { flex: 1 1 auto; }
 .topbar-side--end { justify-content: flex-end; flex: 0 0 auto; }
 
 .chip {
@@ -773,6 +793,7 @@ button.row:hover { background: var(--raised); }
   .proc span:not(.dot) { display: none; }
   .lbl-wide { display: none; }
   .lbl-narrow { display: inline; }
+  .brand { display: none; }
   .entry .meta { display: none; }
   .sheet { max-height: 88vh; }
 }

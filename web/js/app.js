@@ -1445,7 +1445,7 @@ function wireContextMenus() {
   // Top bar: right-click its empty space (not a chip, which has its own menu)
   // for the ways to add or manage what sits in it.
   dom.topbar.addEventListener("contextmenu", (event) => {
-    if (event.target.closest(".chip")) return;
+    if (event.target.closest(".chip, .brand")) return;
     contextMenu(event, {
       heading: "Top bar",
       items: [
@@ -1630,6 +1630,7 @@ async function main() {
     // Visible proof of which build is answering, without spending screen space.
     document.getElementById("proc").title =
       `Shellside ${boot.version} \u2014 what currently owns the terminal`;
+    document.getElementById("brand").title = `Shellside ${boot.version} on GitHub`;
   }
 
   Object.assign(state, {

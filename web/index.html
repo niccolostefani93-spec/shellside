@@ -7,6 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="color-scheme" content="dark">
 <title>Shellside</title>
+<link rel="icon" type="image/png" href="/static/img/favicon.png">
+<link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png">
 <!-- Optional webfont. The app is fully usable without it: the stack falls back
      to the platform's own monospace face, which matters when the host has no
      internet or you are behind a captive portal. -->
@@ -25,6 +27,12 @@
 <!-- Top bar: saved commands on the left (the + after them adds one), discovered
      scripts on the right. Right-click its empty space for the same actions. -->
 <header class="topbar" id="topbar">
+  <!-- The name, so someone who sees Shellside in use knows what to look for.
+       Computers only: on a phone the space is worth more. -->
+  <a class="brand" id="brand" href="https://github.com/niccolostefani93-spec/shellside"
+     target="_blank" rel="noopener" title="Shellside on GitHub">
+    <img src="/static/img/mark.png" alt="" width="28" height="24"><span>shellside</span>
+  </a>
   <nav class="topbar-side" id="topbar-commands" aria-label="Saved commands"></nav>
   <nav class="topbar-side topbar-side--end" id="topbar-scripts" aria-label="Scripts"></nav>
 </header>
