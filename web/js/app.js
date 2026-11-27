@@ -667,17 +667,48 @@ function enableTouchScroll(host) {
   let lastTime = 0;
   let glide = null;
 
+  // When a program grabs the mouse (Claude Code's full-screen view, vim,
+  // htop), xterm.js turns each wheel event into at most ONE wheel report to
+  // the program, however far the finger went. The scroll speed then
+  // followed how often the phone fired touchmove and felt like dragging
+  // through mud. In that mode the finger's distance is counted instead: one
+  // report per TOUCH_ROWS_PER_NOTCH rows travelled, sent as line-mode wheel
+  // events so xterm forwards each one.
+  const TOUCH_ROWS_PER_NOTCH = 1;
+  const MAX_NOTCHES_PER_MOVE = 12;
+  let pending = 0;
+
+  const rowHeight = () => {
+    const row = host.querySelector(".xterm-rows > div");
+    return (row && row.offsetHeight) || 17;
+  };
+
+  const fire = (target, init) => target.dispatchEvent(new WheelEvent("wheel", {
+    ...init, bubbles: true, cancelable: true,
+  }));
+
   const wheel = (deltaY) => {
     const target = host.querySelector(".xterm-screen") || host.querySelector(".xterm");
     if (!target || !deltaY) return;
-    target.dispatchEvent(new WheelEvent("wheel", {
-      deltaY, deltaMode: 0, bubbles: true, cancelable: true,
-    }));
+    if (!host.querySelector(".xterm.enable-mouse-events")) {
+      pending = 0;
+      fire(target, { deltaY, deltaMode: WheelEvent.DOM_DELTA_PIXEL });
+      return;
+    }
+    const step = rowHeight() * TOUCH_ROWS_PER_NOTCH;
+    pending += deltaY;
+    let notches = Math.trunc(pending / step);
+    pending -= notches * step;
+    notches = Math.max(-MAX_NOTCHES_PER_MOVE, Math.min(MAX_NOTCHES_PER_MOVE, notches));
+    for (let i = 0; i < Math.abs(notches); i += 1) {
+      fire(target, { deltaY: Math.sign(notches), deltaMode: WheelEvent.DOM_DELTA_LINE });
+    }
   };
 
   host.addEventListener("touchstart", (event) => {
     if (event.touches.length !== 1) { lastY = null; return; }
     cancelAnimationFrame(glide);
+    pending = 0;
     lastY = event.touches[0].clientY;
     lastTime = event.timeStamp;
     moved = 0;
@@ -698,9 +729,11 @@ function enableTouchScroll(host) {
     wheel(delta);
   }, { passive: false });
 
-  host.addEventListener("touchend", () => {
+  host.addEventListener("touchend", (event) => {
     if (lastY === null || moved < 8) { lastY = null; return; }
     lastY = null;
+    // The finger stopped before it lifted: no flick, nothing to glide.
+    if (event.timeStamp - lastTime > 120) return;
     let speed = velocity * 16;             // px per frame
     const step = () => {
       if (Math.abs(speed) < 0.6) return;
