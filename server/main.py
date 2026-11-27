@@ -36,9 +36,9 @@ app.include_router(auth_routes.router)
 async def _rotate_local_token() -> None:
     """A fresh proof-of-locality token every boot — see server/auth.py.
 
-    Printed here, not in run.py: this way it rotates on every restart the
-    supervisor performs too, including one triggered by an applied update,
-    without run.py needing to import anything from server/.
+    Printed here, not in run.py: this way it rotates on every restart,
+    including one triggered by an applied update, without run.py needing to
+    import anything from server/.
     """
     token = auth.new_local_token()
     port = os.environ.get("SHELLWALK_PORT", "8022")
@@ -1036,22 +1036,50 @@ async def patch_settings(payload: dict[str, Any]) -> dict[str, Any]:
 
 # ---------------------------------------------------------------- project update
 
-RESTART_EXIT_CODE = 42
+def restart_in_place() -> None:
+    """Replace this process with a fresh run.py: same PID, nothing left in memory.
+
+    run.py applies an armed update at the top of main(), before server/ is
+    imported, and re-reads settings.json (a new bind address) on the way up.
+    There is no supervisor to hand this to: the process restarts itself.
+
+    Every descriptor above stdio is closed first. The listening socket and
+    the PTY masters (pty.fork leaves them inheritable) would otherwise cross
+    the exec: the port would stay taken by nobody, and shells that should get
+    SIGHUP would live on, unreachable. Tmux shells are not our children and
+    carry on, as they do across any restart.
+    """
+    try:
+        argv = json.loads(os.environ.get("SHELLWALK_ARGV", "[]"))
+        if not (isinstance(argv, list) and all(isinstance(a, str) for a in argv)):
+            argv = []
+    except json.JSONDecodeError:
+        argv = []
+    os.closerange(3, max(1 << 16, os.sysconf("SC_OPEN_MAX")))
+    # Reap the children that die of that SIGHUP, so they do not linger as
+    # zombies of the new process. A child that ignores it is left behind.
+    deadline = time.monotonic() + 1.0
+    while time.monotonic() < deadline:
+        try:
+            pid, _ = os.waitpid(-1, os.WNOHANG)
+        except ChildProcessError:
+            break
+        if pid == 0:
+            time.sleep(0.02)
+    import sys
+    os.execv(sys.executable, [sys.executable, str(ROOT / "run.py"), *argv])
 
 
 def _schedule_restart() -> None:
-    """Exit 42 shortly, giving the response time to reach the browser first.
+    """Restart shortly, giving the response time to reach the browser first.
 
-    run.py's supervisor loop treats this exit code as "bring the app back up
-    the moment it's dead" — the same path an applied update uses. Nothing
-    file-based needs to be armed for this to work: an update has a plan to
-    apply while the app is down, a bind-host change has nothing to apply, it
-    only needs the app to come back and read settings.json fresh, which
-    happens naturally because that file is read at startup either way.
+    The same path serves an applied update and a bind-host change: an update
+    has a plan for run.py to apply on the way up, a bind-host change has
+    nothing to apply, it only needs settings.json read fresh at startup.
     """
     async def restart() -> None:
         await asyncio.sleep(0.6)
-        os._exit(RESTART_EXIT_CODE)
+        restart_in_place()
 
     asyncio.create_task(restart())
 
@@ -1082,7 +1110,6 @@ async def update_status() -> dict[str, Any]:
     status["sessions"] = _sessions_at_risk()
     status["roots"] = list(update_plan.MERGE_ROOTS)
     status["files"] = list(update_plan.MERGE_FILES)
-    status["supervised"] = os.environ.get("SHELLWALK_SUPERVISED") == "1"
     status["data_home"] = str(DATA_HOME)
     return status
 
@@ -1106,11 +1133,11 @@ async def update_preview(file: UploadFile = File(...)) -> dict[str, Any]:
 
 @app.post("/api/update/apply")
 async def update_apply(payload: dict[str, Any]) -> dict[str, Any]:
-    """Arm the plan and ask the supervisor to restart us.
+    """Arm the plan and restart.
 
-    The merge is deliberately not performed here. This process exits with 42;
-    run.py applies the plan with the application already dead, then starts it
-    again. See server/update_plan.py for why.
+    The merge is deliberately not performed here. This process re-executes
+    run.py, which applies the plan before the app's code is loaded again.
+    See server/update_plan.py for why.
     """
     try:
         plan = update_plan.arm(ROOT, payload.get("token", ""))

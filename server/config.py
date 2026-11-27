@@ -31,7 +31,7 @@ WEB_DIR = ROOT / "web"
 
 # Shipped, in the code directory. app/ keeps its name rather than becoming
 # defaults/: the update-from-zip contract (update_plan.MERGE_ROOTS, and the
-# copy in every already-installed run.py) names "app", and an older supervisor
+# copy in every already-installed run.py) names "app", and an older run.py
 # would refuse to write an update into a folder it has never heard of.
 APP_DIR = ROOT / "app"
 SCRIPTS_DIR = APP_DIR / "scripts"              # read; your layer is USER_SCRIPTS_DIR

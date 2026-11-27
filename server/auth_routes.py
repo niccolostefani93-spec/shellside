@@ -464,10 +464,9 @@ async def access_lan_open(request: Request, payload: dict[str, Any]) -> dict:
 async def network_bind(request: Request, payload: dict[str, Any]) -> dict:
     """Change which address the app binds to, then restart to apply it.
 
-    This writes settings.json's bind_host (in DATA_HOME) and exits — run.py's
-    supervisor re-reads that file on every loop pass (see run.py's
-    resolve_host()) and rebinds to whatever it finds there. Nothing here
-    talks to the supervisor directly; the file is the entire handoff.
+    This writes settings.json's bind_host (in DATA_HOME) and restarts in
+    place — the fresh run.py reads that file (see run.py's resolve_host())
+    and binds to whatever it finds there. The file is the entire handoff.
 
     Loopback-only, same as a password change: this is the actual network
     exposure switch, so it gets at least as strict a gate as the thing it

@@ -4,8 +4,8 @@
 // what it will do, and download the whole project as a zip.
 //
 // The panel never merges anything itself. Preview stages the content and shows
-// the plan; Apply arms it and asks the supervisor to restart — the merge
-// happens with this process already dead. See server/update_plan.py.
+// the plan; Apply arms it and the app restarts into run.py — the merge
+// happens before the app's code is loaded again. See server/update_plan.py.
 
 import { api } from "./api.js";
 import { confirm, el, toast } from "./ui.js";
@@ -76,7 +76,7 @@ function planView(plan, onApply, onCancel) {
                      text: "Apply and restart", onClick: onApply }),
     ]),
     el("div", { class: "field-note", style: "margin-top:8px;",
-      text: "Nothing is written until you press Apply. The merge is performed by the supervisor with the app stopped, then it starts again \u2014 the page will reconnect on its own." }),
+      text: "Nothing is written until you press Apply. The app restarts and the merge is performed before its code is loaded again \u2014 the page will reconnect on its own." }),
   ]);
 }
 
@@ -147,19 +147,14 @@ export function tabUpdate(ctx) {
       },
     });
 
-    const supervisorNote = status.supervised
-      ? null
-      : el("div", { class: "field-note",
-          style: "color:var(--warn);",
-          text: "Running without the supervisor (--no-supervisor), so updates cannot be applied. Start with plain `python3 run.py` to enable them." });
-
     body.replaceChildren(...[
       el("div", { class: "field" }, [
-        el("span", { class: "field-label", text: "Import an update" }),
+        el("span", { class: "field-label", text: "Import an update (deprecated)" }),
+        el("div", { class: "field-note", style: "color:var(--warn);margin-bottom:8px;",
+          text: "Deprecated: importing a zip of code will be removed in a future version. Update with git pull and restart the service instead." }),
         picker, chooseButton,
         el("div", { class: "field-note",
           text: `The zip must contain ${status.roots.map((r) => r + "/").join(", ")} at the top level, with the project's own structure inside. It may also carry ${status.files.join(", ")}, and a delete.json listing paths to remove. Anything else is ignored and listed in the preview.` }),
-        supervisorNote,
       ]),
       status.staged
         ? el("div", { class: "field-note", style: "color:var(--warn);" }, [

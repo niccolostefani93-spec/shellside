@@ -5,8 +5,8 @@ and nothing else. The routes in main.py only translate HTTP to and from these
 functions.
 
 **The merge is never applied from here.** This module only prepares
-`_pending_update/`. Applying it is run.py's job, as supervisor, with the
-application process already dead — see the lifecycle below and README.
+`_pending_update/`. Applying it is run.py's job, on the restart, before the
+application's code is loaded again — see the lifecycle below and README.
 
     preview  →  _pending_update/payload/       imported content, as-is
                 _pending_update/plan.json      the plan, NOT armed
@@ -54,7 +54,7 @@ MERGE_ROOTS = ("server", "web", "app", "services")
 # Unlike the roots they are optional: an update is valid with only roots and
 # none of these, and equally valid the other way round.
 #
-# run.py is on the list, so the supervisor can update itself. It is the most
+# run.py is on the list, so the launcher can update itself. It is the most
 # delicate file here — if it arrives broken the machine does not come back, and
 # on a headless box there is no fixing that remotely — so:
 #   - .py files on this list are COMPILED here, at preview time, before they
@@ -62,7 +62,7 @@ MERGE_ROOTS = ("server", "web", "app", "services")
 #   - run.py recompiles again before overwriting itself, keeps a run.py.bak,
 #     and relaunches itself immediately afterwards;
 #   - no MERGE_FILES entry can be DELETED (see _validate_delete_target): a
-#     delete.json can never leave the project without its supervisor.
+#     delete.json can never leave the project without its launcher.
 MERGE_FILES = ("README.md", "run.py", "requirements.txt")
 
 # Noise not worth carrying in an update (matches what the backup zip skips).

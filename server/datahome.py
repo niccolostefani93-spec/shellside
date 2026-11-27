@@ -4,7 +4,7 @@ The code directory is meant to be something you can `git pull` into, publish,
 or throw away and re-clone. That only works if nothing the app writes at
 runtime lives inside it. So all user state — settings, saved commands,
 favorites, service choices, your own menu actions and scripts, credentials,
-the supervisor's pid file — lives under one directory, DATA_HOME:
+run.py's pid file — lives under one directory, DATA_HOME:
 
     $SHELLWALK_HOME                       if set (tests, a second instance)
     $XDG_CONFIG_HOME/shellwalk            otherwise

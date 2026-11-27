@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shellwalk — supervisor.
+"""Shellwalk — launcher.
 
     ./shellwalk                    # start it (settings from ./shellwalk setup)
     ./shellwalk setup              # guided setup: LAN or not, port, autostart
@@ -7,22 +7,29 @@
     ./shellwalk link               # sign-in link for a browser on this machine
     python3 run.py --host 0.0.0.0  # the same, by hand (needs a LAN password)
 
-This process is a supervisor, not the app. It runs the application as a child
-and stays alive across its restarts, because that is the only way an update can
-be applied safely: the merge happens *here*, with the application already dead.
+This file checks the setup, applies an armed update, and then runs the app in
+this same process. There is no second process waiting around: when the app
+needs a restart (an applied update, a new bind address) it re-executes this
+file in place (os.execv, same PID), so every restart passes through here again.
+
+That is what makes an update safe to apply: the merge happens *here*, at the
+top of main(), before server/ is imported, with the old code already gone
+from memory.
 
 If the app overwrote its own files while running, the process would be left with
 old code in memory and new code on disk — and on a headless box that is not
 something you can fix remotely.
 
-    app requests restart (exit 42)
+    app asks for a restart
               |
               v
-    supervisor (app is DOWN)
+    os.execv(run.py)  (old code gone from memory)
         - copies the files in the plan
         - performs the deletions
         - deletes _pending_update/
         - starts the app again
+
+A crash is not retried here: under systemd, Restart=on-failure does that.
 
 The constants below are duplicated from server/update_plan.py on purpose. This
 file must be able to apply an update even when that update has broken server/.
@@ -76,7 +83,7 @@ def prepare_data_home() -> None:
     try:
         from server import datahome
         datahome.prepare(ROOT, DATA_HOME)
-    except Exception as exc:                    # must never trap the supervisor
+    except Exception as exc:                    # must never stop the start
         log(f"could not prepare {DATA_HOME}: {exc}", RED)
 
 
@@ -86,9 +93,6 @@ MANIFEST_FILENAME = "manifest.json"
 MERGE_ROOTS = ("server", "web", "app", "services", "deploy")
 MERGE_FILES = ("README.md", "run.py", "requirements.txt")
 
-RESTART_CODE = 42          # the app is asking to be restarted
-STOP_CODE = 0              # the app exited cleanly; stay down
-
 BANNER = "\033[38;5;179m"
 DIM = "\033[38;5;244m"
 RED = "\033[38;5;167m"
@@ -97,7 +101,7 @@ OFF = "\033[0m"
 
 
 def log(message: str, colour: str = DIM) -> None:
-    print(f"{colour}  [supervisor] {message}{OFF}", flush=True)
+    print(f"{colour}  [shellwalk] {message}{OFF}", flush=True)
 
 
 # --- Applying a pending update -----------------------------------------------
@@ -136,7 +140,7 @@ def _self_update(source: Path, destination: Path) -> bool:
     backup = destination.with_name("run.py.bak")
     try:
         shutil.copy2(destination, backup)
-        log(f"previous supervisor kept at {backup.name}")
+        log(f"previous run.py kept at {backup.name}")
     except OSError as exc:
         log(f"could not write {backup.name}: {exc}", RED)
     shutil.copy2(source, destination)
@@ -182,7 +186,7 @@ def apply_pending_update() -> bool:
                 target.unlink(missing_ok=True)
 
         log("update applied", GREEN)
-    except Exception as exc:                      # must never trap the supervisor
+    except Exception as exc:                      # must never stop the start
         log(f"update failed part way through: {exc}", RED)
     finally:
         # Always remove it. A manifest that survived an error would redo the
@@ -193,7 +197,7 @@ def apply_pending_update() -> bool:
 
 
 def relaunch_self(argv: list[str]) -> None:
-    log("supervisor updated itself, restarting", BANNER)
+    log("run.py updated itself, restarting", BANNER)
     os.execv(sys.executable, [sys.executable, str(ROOT / "run.py"), *argv])
 
 
@@ -219,10 +223,10 @@ def relaunch_into_venv(argv: list[str]) -> None:
 # the app can be kept in step on. The file records ROOT, so two code checkouts
 # sharing one DATA_HOME do not mistake each other for themselves.
 RUN_DIR = DATA_HOME / "run"
-PIDFILE = RUN_DIR / "supervisor.pid"
-# Where versions before DATA_HOME wrote it. Read, never written: the first
-# start after upgrading may still find the old instance on the port.
-_LEGACY_PIDFILE = ROOT / ".run" / "supervisor.pid"
+PIDFILE = RUN_DIR / "shellwalk.pid"
+# Where earlier versions wrote it. Read, never written: the first start after
+# upgrading may still find the old instance on the port.
+_LEGACY_PIDFILES = (RUN_DIR / "supervisor.pid", ROOT / ".run" / "supervisor.pid")
 
 
 def _read_cmdline(pid: int) -> str:
@@ -233,14 +237,8 @@ def _read_cmdline(pid: int) -> str:
     return raw.replace(b"\0", b" ").decode("utf-8", "replace").strip()
 
 
-def record_self(child_pid: int | None = None) -> None:
-    """Note whichever process actually holds the port, for a later start to find.
-
-    In supervised mode that is the child run_app() just spawned — the
-    supervisor itself never binds a socket, it only waits on that child. In
-    --no-supervisor mode there is no child; this process *is* the one
-    holding the port. Either way, "the pid a future ensure_port_free() should
-    check" is a single field, updated here to whichever one is true.
+def record_self() -> None:
+    """Note this process, which holds the port, for a later start to find.
 
     Not a lockfile in the exclusive-open sense — nothing here refuses to run
     because the file exists. It exists so that later, ensure_port_free() has
@@ -249,10 +247,29 @@ def record_self(child_pid: int | None = None) -> None:
     """
     try:
         RUN_DIR.mkdir(parents=True, exist_ok=True)
-        pid = child_pid if child_pid is not None else os.getpid()
-        PIDFILE.write_text(json.dumps({"pid": pid, "root": str(ROOT)}))
+        PIDFILE.write_text(json.dumps({"pid": os.getpid(), "root": str(ROOT)}))
     except OSError:
         pass  # best-effort; ensure_port_free() degrades to "leave it alone"
+
+
+def _runs_our_run_py(pid: int) -> bool:
+    """Whether that process is a Python running this very run.py.
+
+    Resolved against the process's own cwd, because `python3 run.py` from
+    inside the checkout leaves no absolute path in the command line.
+    """
+    try:
+        args = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
+    except OSError:
+        return False
+    cwd = _proc_cwd(pid)
+    ours = str(ROOT / "run.py")
+    for raw in args[1:3]:               # python [flags] run.py ...
+        arg = raw.decode("utf-8", "replace")
+        if os.path.basename(arg) == "run.py" and cwd:
+            if os.path.normpath(os.path.join(cwd, arg)) == ours:
+                return True
+    return False
 
 
 def _proc_cwd(pid: int) -> str:
@@ -265,17 +282,14 @@ def _proc_cwd(pid: int) -> str:
 def _stale_self_pid() -> int | None:
     """A PID from our own pidfile, but only if it still checks out as *us*.
 
-    The recorded PID is whichever process actually holds the port — the
-    supervisor's child in supervised mode, or the supervisor itself under
-    --no-supervisor — and the two look different from /proc: the supervisor's
-    argv literally contains "run.py" and this ROOT; the child's argv is an
-    inline `python -c "import uvicorn; ..."` with neither, so its *cwd* is
-    what's checked instead — record_self() only ever sets cwd=ROOT for a
-    process we ourselves spawned. A recycled PID (Linux reuses them) matching
-    neither is not good enough for either shape to pass; all of one shape's
-    checks, or none.
+    Today that process is run.py itself, whose argv contains "run.py" and
+    this ROOT. Earlier versions ran the app as the child of a supervisor,
+    an inline `python -c "import uvicorn; ..."` with neither, so for an
+    instance left over from an upgrade its *cwd* is checked instead — only a
+    process we spawned ever had cwd=ROOT and uvicorn in its argv. A recycled
+    PID (Linux reuses them) matching neither shape is not good enough.
     """
-    for pidfile in (PIDFILE, _LEGACY_PIDFILE):
+    for pidfile in (PIDFILE, *_LEGACY_PIDFILES):
         try:
             data = json.loads(pidfile.read_text())
             pid = int(data["pid"])
@@ -292,9 +306,9 @@ def _stale_self_pid() -> int | None:
     cmdline = _read_cmdline(pid)
     if not cmdline:
         return None
-    looks_like_supervisor = "run.py" in cmdline and str(ROOT) in cmdline
-    looks_like_child = "uvicorn" in cmdline and _proc_cwd(pid) == str(ROOT)
-    if not (looks_like_supervisor or looks_like_child):
+    looks_like_us = _runs_our_run_py(pid)
+    looks_like_old_child = "uvicorn" in cmdline and _proc_cwd(pid) == str(ROOT)
+    if not (looks_like_us or looks_like_old_child):
         return None
     return pid
 
@@ -352,7 +366,7 @@ def ensure_port_free(host: str, port: int) -> bool:
             os.kill(stale_pid, signal.SIGINT)
         except ProcessLookupError:
             return True
-        for _ in range(60):                       # ~6s, matching run_app()'s own grace period
+        for _ in range(60):                       # ~6s
             if not _port_is_open(host, port):
                 return True
             time.sleep(0.1)
@@ -511,8 +525,8 @@ def _offer_auto_setup() -> bool:
 def preflight() -> bool:
     """Check the app's dependencies before spawning it.
 
-    Without this the supervisor spawns a child that dies instantly, forever,
-    scrolling the same traceback past you. A missing dependency is not a crash
+    Without this the app dies on its first import with a traceback, and
+    under systemd it is restarted into the same traceback, forever. A missing dependency is not a crash
     to retry: it is a setup step, and the fix belongs on screen.
     """
     import importlib.util
@@ -596,32 +610,20 @@ def preflight() -> bool:
     return False
 
 
-# --- Supervision loop --------------------------------------------------------
+# --- Running the app ------------------------------------------------------------
 
-def run_app(host: str, port: int) -> int:
-    """Start the application as a child and wait for it. Returns its exit code."""
-    command = [
-        sys.executable, "-c",
-        "import uvicorn; uvicorn.run('server.main:app', "
-        f"host={host!r}, port={port}, log_level='warning')",
-    ]
-    environment = {
-        **os.environ,
-        "SHELLWALK_SUPERVISED": "1",
-        "SHELLWALK_BIND_HOST": host,        # the gate's loopback-trust rule
-        "SHELLWALK_PORT": str(port),        # for the printed recovery link
-    }
-    process = subprocess.Popen(command, cwd=str(ROOT), env=environment)
-    record_self(child_pid=process.pid)
-    try:
-        return process.wait()
-    except KeyboardInterrupt:
-        process.terminate()
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-        return STOP_CODE
+def run_app(host: str, port: int, argv: list[str]) -> int:
+    """Run the app in this process until it stops.
+
+    A restart never returns here: the app re-executes run.py in place
+    (server/main.py, restart_in_place), with the argv saved below.
+    """
+    os.environ["SHELLWALK_BIND_HOST"] = host     # the gate's loopback-trust rule
+    os.environ["SHELLWALK_PORT"] = str(port)     # for the printed recovery link
+    os.environ["SHELLWALK_ARGV"] = json.dumps(argv)
+    import uvicorn
+    uvicorn.run("server.main:app", host=host, port=port, log_level="warning")
+    return 0
 
 
 SETTINGS_FILE = DATA_HOME / "settings.json"
@@ -692,9 +694,8 @@ def resolve_host(cli_host: str | None) -> str:
     person at a terminal is a stronger signal than anything saved. Absent
     that, read bind_host fresh from DATA_HOME/settings.json every time this is
     called, not once at startup: the Settings panel changes that file and
-    then asks for a restart (see /api/network/bind), and the point of
-    re-reading here, inside the supervisor's loop, rather than once in
-    main(), is that the *next* iteration of that loop already sees it.
+    then asks for a restart (see /api/network/bind), which re-executes
+    run.py, so the next start reads the new value here.
 
     Read directly rather than importing server.config: this runs before
     preflight() has confirmed the app's own dependencies are even
@@ -732,15 +733,15 @@ def main() -> int:
                              "for this run.")
     parser.add_argument("--port", type=int, default=None,
                         help="Overrides the saved port (default 8022) for this run.")
+    # Accepted and ignored: the app always runs in this process now.
     parser.add_argument("--no-supervisor", action="store_true",
-                        help="Run the app in this process. Updates cannot be applied.")
+                        help=argparse.SUPPRESS)
     parser.add_argument("--auto-setup", action="store_true",
                         help="Install missing dependencies without asking. "
                              "For non-interactive starts (systemd, cron); "
                              "same effect as SHELLWALK_AUTO_SETUP=1.")
     # `kill`, `systemctl stop` with the default signal, a shutdown: stop the
-    # app child the same way Ctrl+C does, instead of dying and leaving it
-    # running on the port with nobody supervising it.
+    # same way Ctrl+C does. While the app runs, uvicorn has its own handlers.
     def _terminate(signum, frame):
         raise KeyboardInterrupt
     signal.signal(signal.SIGTERM, _terminate)
@@ -767,7 +768,7 @@ def main() -> int:
         return 1
     record_self()
     try:
-        return _run_supervised(args, argv)
+        return _start(args, argv)
     finally:
         # Best-effort: a pidfile pointing at a PID that's already gone is
         # harmless (_stale_self_pid() checks liveness before trusting it),
@@ -779,7 +780,7 @@ def main() -> int:
             pass
 
 
-def _run_supervised(args: argparse.Namespace, argv: list[str]) -> int:
+def _start(args: argparse.Namespace, argv: list[str]) -> int:
     host = resolve_host(args.host)
     warn_about_exposure(host)
     location = (f"http://127.0.0.1:{args.port}" if host in LOOPBACK_HOSTS
@@ -788,68 +789,10 @@ def _run_supervised(args: argparse.Namespace, argv: list[str]) -> int:
     if host == "0.0.0.0":
         print(f"{DIM}  Also reachable on this machine's LAN address.{OFF}")
     print()
-
-    if args.no_supervisor:
-        os.environ["SHELLWALK_BIND_HOST"] = host
-        os.environ["SHELLWALK_PORT"] = str(args.port)
-        import uvicorn
-        uvicorn.run("server.main:app", host=host, port=args.port,
-                    log_level="warning")
+    try:
+        return run_app(host, args.port, argv)
+    except KeyboardInterrupt:
         return 0
-
-    # A crash is worth retrying; a crash that repeats instantly is not. Three
-    # failures inside ten seconds means the app cannot start at all, and looping
-    # forever would only bury the reason under its own output.
-    FAST_FAILURE_SECONDS = 10
-    MAX_FAST_FAILURES = 3
-    fast_failures = 0
-
-    while True:
-        # Re-resolved every pass, not hoisted above the loop: a bind-host
-        # change from Settings writes to settings.json and exits with
-        # RESTART_CODE, and this is the read that makes the *next* run_app()
-        # actually bind to the new address, with no separate "reload config"
-        # step anywhere.
-        host = resolve_host(args.host)
-        started = time.monotonic()
-        code = run_app(host, args.port)
-        lasted = time.monotonic() - started
-
-        if code == RESTART_CODE:
-            log("restart requested")
-            if apply_pending_update():
-                relaunch_self(argv)
-            fast_failures = 0
-            time.sleep(0.4)
-            continue
-
-        if code == STOP_CODE:
-            log("application exited cleanly, stopping")
-            return 0
-
-        # Any other code is a crash. Do not apply anything.
-        if lasted < FAST_FAILURE_SECONDS:
-            fast_failures += 1
-        else:
-            fast_failures = 1
-
-        if fast_failures >= MAX_FAST_FAILURES:
-            print(
-                f"\n{RED}  The application failed to start {fast_failures} times "
-                f"in a row.{OFF}\n"
-                f"{DIM}  The reason is in the output above \u2014 the supervisor has "
-                "stopped rather than\n"
-                "  scroll it away. Common causes:\n\n"
-                "    missing packages   pip3 install -r requirements.txt\n"
-                f"    port already busy  ss -tlnp | grep {args.port}\n"
-                "    a bad update       restore run.py.bak, or fix the file named above\n"
-                f"{OFF}"
-            )
-            return 1
-
-        log(f"application exited with code {code}, restarting in 2s "
-            f"({fast_failures}/{MAX_FAST_FAILURES})", RED)
-        time.sleep(2)
 
 
 if __name__ == "__main__":

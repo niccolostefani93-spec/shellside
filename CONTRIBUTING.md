@@ -21,7 +21,7 @@ imports.
 ### Where user data lives
 
 Everything Shellwalk writes at runtime (settings, saved commands, favorites,
-service choices, credentials, the supervisor's pid file) lives in one
+service choices, credentials, run.py's pid file) lives in one
 directory, never in the code checkout. It is `$SHELLWALK_HOME` if set,
 otherwise `$XDG_CONFIG_HOME/shellwalk`, otherwise `~/.config/shellwalk`
 (see `server/datahome.py`).

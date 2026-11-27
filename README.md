@@ -263,10 +263,11 @@ Your settings, passwords and saved commands live in `~/.config/shellwalk`, not i
 the code folder, so a pull never touches them.
 
 For a headless machine administered from a phone there is also
-**Settings › Update / Backup**: import a zip of new code, preview what it will
-touch, then apply. The merge does not happen inside the running app — `run.py`
-is a supervisor, the app is its child, and the files are replaced while the app
-is down. Incoming Python is compiled at preview time, and the preview names any
+**Settings › Update / Backup** (*deprecated*: the zip import will be removed in a
+future version; use `git pull`): import a zip of new code, preview what it will
+touch, then apply. The merge does not happen inside the running app: the app
+restarts itself into `run.py`, which replaces the files before the app's code is
+loaded again. Incoming Python is compiled at preview time, and the preview names any
 shell still running a job before you commit, because a restart ends every open
 shell (unless you keep shells in tmux, Settings › General).
 
@@ -311,8 +312,8 @@ first. It gives a shell to whoever gets past the login, and it has not been
 audited.
 
 **How heavy is it? Will it run on a Raspberry Pi?**
-About 95 MB of RAM on the author's machine, with shells open (the supervisor
-plus the server). The dependencies are FastAPI and uvicorn, with Python 3.11+.
+About 65 MB of RAM on the author's machine, with shells open (one Python
+process). The dependencies are FastAPI and uvicorn, with Python 3.11+.
 It should run on a Pi with a 64-bit OS, but nobody has tried yet: if you do,
 please say how it went in an issue.
 

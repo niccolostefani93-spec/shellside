@@ -613,22 +613,27 @@ your settings (see [Where your data lives](#where-your-data-lives)).
 administered from a phone. Import a zip of new code, review exactly what it
 will do, apply it, and download the whole project.
 
-### Why run.py is a supervisor
+> **Deprecated.** Importing a zip of code is deprecated and will be removed in
+> a future version. Update with `git pull` and a restart instead. The backup
+> download stays.
+
+### Why the update is applied by run.py
 
 The service that updates the code runs *inside* the process being updated. If it
 overwrote its own files while alive, the process would be left with old code in
 memory and new code on disk — and on a headless box that is not fixable
 remotely.
 
-So the merge never happens in the app. It happens in `run.py`, which runs the
-application as a child and outlives it:
+So the merge never happens in the app. The app restarts itself in place
+(`os.execv` of `run.py`, same PID, no extra process left running), and `run.py`
+applies the merge at the top of its start, before the app's code is imported:
 
     UI ──▶ preview ──▶ confirm
                           ├─ content validated into _pending_update/payload/
                           ├─ plan armed as _pending_update/manifest.json
-                          └─ restart requested (exit code 42)
+                          └─ restart in place (os.execv run.py)
                                        │
-                                  run.py (app is DOWN)
+                                  run.py (old code gone from memory)
                                        ├─ copies the files in the plan
                                        ├─ performs the deletions
                                        ├─ deletes _pending_update/
@@ -637,7 +642,7 @@ application as a child and outlives it:
 Until `manifest.json` exists, `_pending_update/` is inert rubbish: an abandoned
 preview has no effect and is overwritten by the next one. If the machine loses
 power between confirming and restarting, the update is applied on the next
-start. `python3 run.py --no-supervisor` runs the old way, and the panel says so.
+start.
 
 ### How an update zip is shaped
 
@@ -671,7 +676,7 @@ always run before deletions.
 
 ### The three defences on run.py
 
-The supervisor can update itself — it is the most delicate file here, so:
+`run.py` can update itself — it is the most delicate file here, so:
 
 1. incoming `.py` files are **compiled at preview time**; a broken one fails the
    analysis and can never be armed
@@ -680,11 +685,12 @@ The supervisor can update itself — it is the most delicate file here, so:
 3. the previous version is kept as `run.py.bak` — not an automatic rollback, the
    file to restart from by hand
 
-Having replaced itself, the supervisor re-executes immediately so the new code
+Having replaced itself, `run.py` re-executes immediately so the new code
 takes effect in that same restart.
 
 There is **no automatic backup and no automatic rollback.** If the app does not
-come back, the supervisor keeps trying and prints its logs; diagnosis is yours.
+come back, the output (or `journalctl --user -u shellwalk` under systemd, which
+retries it) says why; diagnosis is yours.
 Take a backup when you want one, with the button.
 
 ### What is specific to this app
@@ -716,7 +722,7 @@ losing anything.
     scripts/           your own top-bar scripts
     favorites/         favorite folders
     data/              reference files for the model's context
-    run/               the supervisor's pid file
+    run/               run.py's pid file
 
 A new install is seeded from the defaults under `app/`. An install from before
 this folder existed is copied over once, on its first start; the old files are
@@ -726,7 +732,7 @@ left where they were.
 
 ## Layout
 
-    run.py           supervisor: starts the app, applies updates, restarts it
+    run.py           launcher: checks setup, applies updates, runs the app
     shellwalk        launcher: runs run.py with the checkout's virtualenv
     setup.sh         builds the virtualenv, then runs the guided setup
 

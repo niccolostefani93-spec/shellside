@@ -200,7 +200,7 @@ ExecStart="{python}" "{ROOT / 'run.py'}" --auto-setup
 Environment=PYTHONUNBUFFERED=1
 {home_line}Restart=on-failure
 RestartSec=5
-# The supervisor stops cleanly on SIGINT (see run.py).
+# run.py stops cleanly on SIGINT.
 KillSignal=SIGINT
 TimeoutStopSec=10
 
