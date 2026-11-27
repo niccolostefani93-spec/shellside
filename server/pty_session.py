@@ -118,6 +118,132 @@ def tmux_has(session_id: str) -> bool:
         return False
 
 
+def tmux_history(session_id: str, lines: int = 3000) -> bytes:
+    """The pane's scrollback above the visible screen, colours kept, wrapped
+    lines joined (the browser rewraps them to its own width)."""
+    try:
+        result = _tmux("capture-pane", "-p", "-e", "-J", "-S", f"-{lines}", "-E", "-1",
+                       "-t", f"={tmux_name(session_id)}:")
+    except (OSError, subprocess.SubprocessError):
+        return b""
+    if result.returncode != 0:
+        return b""
+    text = result.stdout.rstrip("\n")
+    if not text.strip():
+        return b""
+    return (text.replace("\n", "\x1b[0m\r\n") + "\x1b[0m\r\n").encode()
+
+
+def _set_winsize(fd: int, rows: int, cols: int) -> None:
+    try:
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+    except OSError:
+        pass
+
+
+class TmuxViewer:
+    """One browser's own tmux client on a shell kept in tmux.
+
+    Several devices on the same tab used to share one PTY, so the PTY had
+    one size: whichever browser reported last. A phone at 44 columns and a
+    computer at 180 then fought over it, and full-screen programs (Claude
+    Code, vim) drew for one width on a screen of another: letters written
+    over each other, words missing. Each browser now attaches its own tmux
+    client, at its own size, and tmux draws the shared pane correctly for
+    each one (the pane follows the device used last: window-size latest).
+
+    The shell is still one and lives in tmux: what one device types or runs,
+    the other sees; closing the tab ends it everywhere.
+    """
+
+    def __init__(self, session_id: str, rows: int = 24, cols: int = 80) -> None:
+        environ = dict(os.environ)
+        environ.pop("TMUX", None)
+        environ["TERM"] = "xterm-256color"
+        argv = ["tmux", "-L", TMUX_SOCKET, "-f", str(TMUX_CONF),
+                "attach-session", "-t", f"={tmux_name(session_id)}"]
+        pid, fd = pty.fork()
+        if pid == 0:  # child
+            try:
+                _set_winsize(0, rows, cols)   # tmux starts at the right size
+                os.execvpe(argv[0], argv, environ)
+            except Exception:  # pragma: no cover - child process
+                os._exit(1)
+        self.pid = pid
+        self.fd = fd
+        self.alive = True
+        os.set_blocking(fd, False)
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+    def start(self, loop: asyncio.AbstractEventLoop,
+              on_output: Callable[[bytes], None], on_exit: Callable[[], None]) -> None:
+        def readable() -> None:
+            try:
+                data = os.read(self.fd, 65536)
+            except BlockingIOError:
+                return
+            except OSError:
+                data = b""
+            if data:
+                on_output(data)
+                return
+            self._stop_reading()
+            if self.alive:
+                self.alive = False
+                on_exit()
+
+        loop.add_reader(self.fd, readable)
+        self._loop = loop
+
+    def _stop_reading(self) -> None:
+        loop, self._loop = self._loop, None
+        try:
+            if loop is not None and not loop.is_closed():
+                loop.remove_reader(self.fd)
+        except (OSError, ValueError, RuntimeError):
+            pass
+
+    def write(self, data: bytes) -> None:
+        if not self.alive:
+            return
+        try:
+            os.write(self.fd, data)
+        except OSError:
+            pass
+
+    def resize(self, rows: int, cols: int) -> None:
+        if self.alive:
+            _set_winsize(self.fd, rows, cols)
+
+    def close(self) -> None:
+        """Detach this client. The shell and the other devices carry on.
+
+        Safe to call twice: a second kill or close could hit a pid or fd
+        number the kernel has since handed to something else.
+        """
+        if getattr(self, "_closed", False):
+            return
+        self._closed = True
+        self.alive = False
+        self._stop_reading()            # before os.close(): see PtySession._remove_reader
+        try:
+            os.kill(self.pid, signal.SIGHUP)
+        except OSError:
+            pass
+        try:
+            os.close(self.fd)
+        except OSError:
+            pass
+        # Reap it without blocking the event loop: tmux exits at once on SIGHUP.
+        def reap() -> None:
+            try:
+                os.waitpid(self.pid, 0)
+            except OSError:
+                pass
+        import threading
+        threading.Thread(target=reap, daemon=True).start()
+
+
 def shell_argv(shell: str) -> list[str]:
     """bash gets Shellwalk's rc file (which loads ~/.bashrc first); other
     shells start exactly as before."""
@@ -156,6 +282,9 @@ class PtySession:
         # With tmux, the shell is not our child but runs in a tmux pane:
         # its pid, once tmux reports it (see shell_pid()).
         self._pane_pid: int | None = None
+        # Without tmux: each browser's terminal size, and whose size the PTY has.
+        self._client_sizes: dict[object, tuple[int, int]] = {}
+        self._size_owner: object | None = None
 
         # What the shell itself needs: a marker, plus the assistant's address.
         shell_env = {"SHELLWALK": "1", "COLORTERM": "truecolor",
@@ -313,11 +442,39 @@ class PtySession:
     def resize(self, rows: int, cols: int) -> None:
         if not self.alive:
             return
-        try:
-            fcntl.ioctl(self.fd, termios.TIOCSWINSZ,
-                        struct.pack("HHHH", rows, cols, 0, 0))
-        except OSError:
-            pass
+        _set_winsize(self.fd, rows, cols)
+
+    # A shell without tmux has one PTY, so one size, however many browsers
+    # show it. The device that typed last decides it: the one in your hands.
+    # A browser that only resizes (a phone keyboard opening, a window being
+    # dragged) no longer pulls the size away from the device being used.
+
+    def client_resize(self, client: object, rows: int, cols: int) -> None:
+        sizes = self._client_sizes
+        sizes[client] = (rows, cols)
+        owner = self._size_owner
+        if owner is None or owner not in sizes:
+            self._size_owner = client
+            owner = client
+        if owner is client:
+            self.resize(rows, cols)
+
+    def client_input(self, client: object) -> None:
+        sizes = self._client_sizes
+        if self._size_owner is client:
+            return
+        self._size_owner = client
+        if client in sizes:
+            self.resize(*sizes[client])
+
+    def client_gone(self, client: object) -> None:
+        sizes = self._client_sizes
+        sizes.pop(client, None)
+        if self._size_owner is client:
+            self._size_owner = None
+            if sizes:                   # hand the size to a device still open
+                self._size_owner, size = next(reversed(sizes.items()))
+                self.resize(*size)
 
     # ------------------------------------------------------------ inspection
 

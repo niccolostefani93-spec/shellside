@@ -601,3 +601,63 @@ def test_assistant_sees_only_the_previous_command():
     block = last_command_block(long_output, "seq 100")
     assert block[0] == "nik@pc:~$ seq 100" and block[-1] == "100"
     assert len(block) == 32          # prompt line, "left out" note, last 30 lines
+
+
+def test_without_tmux_the_device_typing_decides_the_size():
+    """Phone and computer on one PTY: a resize alone (a phone keyboard
+    opening) must not pull the size away from the device in use."""
+    session = PtySession(shell="/bin/bash", cwd="/tmp")
+    try:
+        size = lambda: os.get_terminal_size(session.fd)
+        pc, phone = object(), object()
+        session.client_resize(pc, 40, 160)
+        assert tuple(size()) == (160, 40)
+        session.client_resize(phone, 33, 44)
+        assert tuple(size()) == (160, 40)       # the phone only resized
+        session.client_input(phone)
+        assert tuple(size()) == (44, 33)        # now it typed
+        session.client_resize(pc, 40, 170)
+        assert tuple(size()) == (44, 33)
+        session.client_gone(phone)
+        assert tuple(size()) == (170, 40)       # the device left keeps going
+    finally:
+        session.close()
+
+
+def test_each_browser_gets_its_own_tmux_client():
+    """Two devices on a shell kept in tmux: one client each, at each one's
+    own size, both seeing the same shell; closing one leaves the shell."""
+    import shutil
+    import subprocess
+    import pytest
+    from server import pty_session
+
+    if not shutil.which("tmux"):
+        pytest.skip("tmux not installed")
+    session = PtySession(shell="/bin/bash", cwd="/tmp", use_tmux=True)
+    viewers = []
+    try:
+        deadline = time.time() + 5
+        while not pty_session.tmux_has(session.id) and time.time() < deadline:
+            drain(session, 0.1)
+        viewers = [pty_session.TmuxViewer(session.id, 40, 160),
+                   pty_session.TmuxViewer(session.id, 33, 44)]
+        for viewer in viewers:
+            drain(viewer, 0.6)
+
+        def clients():
+            out = pty_session._tmux("list-clients", "-t", f"={pty_session.tmux_name(session.id)}",
+                                    "-F", "#{client_width}x#{client_height}").stdout
+            return sorted(out.split())
+
+        assert "160x40" in clients() and "44x33" in clients()
+        viewers[1].write(b"echo SHARED_$((40+2))\r")
+        assert b"SHARED_42" in drain(viewers[0], 1.5)
+        viewers[1].close()
+        time.sleep(0.5)
+        assert "44x33" not in clients() and pty_session.tmux_has(session.id)
+    finally:
+        for viewer in viewers:
+            viewer.close()
+        session.close()
+        subprocess.run(["tmux", "-L", pty_session.TMUX_SOCKET, "kill-server"], capture_output=True)

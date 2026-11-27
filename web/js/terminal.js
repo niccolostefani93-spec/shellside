@@ -136,6 +136,11 @@ export class TerminalSurface {
         let message;
         try { message = JSON.parse(event.data); } catch { return; }
         if (message.type === "session") {
+          // A reconnect: the server sends the history again, and redraws
+          // the screen, so start from a clean terminal instead of stacking
+          // a second copy under the first.
+          if (this.connectedOnce && message.resumed) this.term.reset();
+          this.connectedOnce = true;
           this.sessionId = message.id;
           if (this.onSession) this.onSession(message);
         } else if (message.type === "closed") {

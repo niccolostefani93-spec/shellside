@@ -24,7 +24,8 @@ from .gate import GateMiddleware
 from .config import (BROWSER_NATIVE, DEFAULT_FILE_ICONS, DEFAULT_HANDLERS, DATA_DIR, DATA_HOME, FAVORITES_FILE,
                      ROOT, VERSION, SANDBOX_INLINE, WEB_DIR, SettingsError, load_settings,
                      save_settings)
-from .pty_session import registry, tmux_available, tmux_sessions
+from .pty_session import (TmuxViewer, registry, tmux_available, tmux_has, tmux_history,
+                          tmux_sessions)
 from .templating import render
 
 app = FastAPI(title="Shellwalk", docs_url=None, redoc_url=None)
@@ -104,16 +105,70 @@ async def terminal_socket(ws: WebSocket, session: str | None = Query(None)) -> N
     def on_closed() -> None:
         loop.call_soon_threadsafe(outbox.put_nowait, None)
 
-    pty_session.add_listener(on_output)
-    pty_session.add_close_callback(on_closed)
-    pty_session.attach_to_loop(loop)
+    # The browser reports its size as soon as the socket opens. Wait briefly
+    # for it, so a tmux client starts at the right size instead of 80x24.
+    rows, cols = 24, 80
+    early: list[dict] = []
+    try:
+        first = await asyncio.wait_for(ws.receive(), timeout=1.5)
+        early.append(first)
+        parsed = json.loads(first.get("text") or "null")
+        if isinstance(parsed, dict) and parsed.get("type") == "resize":
+            rows, cols = int(parsed.get("rows", 24)), int(parsed.get("cols", 80))
+            early.clear()
+    except (asyncio.TimeoutError, json.JSONDecodeError, ValueError, TypeError):
+        pass
+    except (WebSocketDisconnect, RuntimeError):
+        return
 
+    # Shells in tmux: this browser gets its own tmux client, at its own size
+    # (see TmuxViewer). Otherwise it shares the shell's one PTY.
+    viewer: TmuxViewer | None = None
+    pty_session.add_close_callback(on_closed)
+    pty_session.attach_to_loop(loop)     # the shell's own reader: assistant, cwd, liveness
     await ws.send_json({"type": "session", "id": pty_session.id, "resumed": resumed,
                         "title": pty_session.title})
-    if resumed:
-        history = pty_session.scrollback()
+    if pty_session.tmux:
+        history = tmux_history(pty_session.id)
         if history:
-            await ws.send_bytes(history)
+            # Then push it all above the screen, which tmux redraws on attach.
+            await ws.send_bytes(history + b"\r\n" * rows)
+        viewer = TmuxViewer(pty_session.id, rows, cols)
+        pty_session.resize(rows, cols)
+        viewer.start(loop, on_output, on_exit=lambda: on_output(b""))
+    else:
+        pty_session.add_listener(on_output)
+        pty_session.client_resize(ws, rows, cols)
+        if resumed:
+            history = pty_session.scrollback()
+            if history:
+                await ws.send_bytes(history)
+
+    size = [rows, cols]
+
+    def handle(parsed: dict) -> None:
+        kind = parsed.get("type")
+        if kind == "input":
+            data = parsed.get("data", "").encode()
+            write_raw(data)
+        elif kind == "resize":
+            r, c = int(parsed.get("rows", 24)), int(parsed.get("cols", 80))
+            size[0], size[1] = r, c
+            if viewer is not None:
+                viewer.resize(r, c)
+            else:
+                pty_session.client_resize(ws, r, c)
+
+    def write_raw(data: bytes) -> None:
+        if viewer is not None:
+            # The shell's own tmux client takes the size of the device typing,
+            # so text the app types into it (a panel action) does not pull
+            # the pane to another device's size.
+            pty_session.resize(*size)
+            viewer.write(data)
+        else:
+            pty_session.client_input(ws)
+            pty_session.write(data)
 
     async def pump_out() -> None:
         while True:
@@ -122,33 +177,46 @@ async def terminal_socket(ws: WebSocket, session: str | None = Query(None)) -> N
                 await ws.send_json({"type": "closed", "id": pty_session.id})
                 await ws.close(1000)
                 return
+            if data == b"":             # our tmux client ended
+                if tmux_has(pty_session.id):
+                    await ws.close(1011)    # the browser reconnects
+                else:
+                    await ws.send_bytes(b"\r\n[shellwalk] shell exited\r\n")
+                return
             await ws.send_bytes(data)
+
+    def dispatch(message: dict) -> None:
+        if (payload := message.get("bytes")) is not None:
+            write_raw(payload)
+        elif (text := message.get("text")) is not None:
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                write_raw(text.encode())
+                return
+            if isinstance(parsed, dict):
+                handle(parsed)
 
     pump = asyncio.create_task(pump_out())
     try:
+        for message in early:
+            if message.get("type") == "websocket.disconnect":
+                raise WebSocketDisconnect()
+            dispatch(message)
         while True:
             message = await ws.receive()
             if message.get("type") == "websocket.disconnect":
                 break
-            if (payload := message.get("bytes")) is not None:
-                pty_session.write(payload)
-            elif (text := message.get("text")) is not None:
-                try:
-                    parsed = json.loads(text)
-                except json.JSONDecodeError:
-                    pty_session.write(text.encode())
-                    continue
-                kind = parsed.get("type")
-                if kind == "input":
-                    pty_session.write(parsed.get("data", "").encode())
-                elif kind == "resize":
-                    pty_session.resize(int(parsed.get("rows", 24)),
-                                       int(parsed.get("cols", 80)))
+            dispatch(message)
     except (WebSocketDisconnect, RuntimeError):     # RuntimeError: pump closed it
         pass
     finally:
         pump.cancel()
-        pty_session.remove_listener(on_output)
+        if viewer is not None:
+            viewer.close()
+        else:
+            pty_session.remove_listener(on_output)
+            pty_session.client_gone(ws)
         pty_session.remove_close_callback(on_closed)
         # The shell survives a closed socket or browser: it is still one of
         # the open tabs (see /api/workspace). Only closing its tab ends it.
