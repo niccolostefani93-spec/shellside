@@ -1208,9 +1208,32 @@ async def update_backup() -> Response:
 
 # --------------------------------------------------------------------- pages
 
+def _asset_version(path: Path) -> str:
+    stat = path.stat()
+    return f"{stat.st_mtime_ns:x}{stat.st_size:x}"
+
+
+def versioned_page(html: str) -> str:
+    """Give the page's own CSS and JS a ?v= that changes with the file.
+
+    "no-cache" (AppStatic) is not enough on its own: a CDN in front of the
+    app, such as a Cloudflare tunnel, can keep serving last version's
+    app.css under the same URL, and the phone then gets new markup with old
+    styles. A new URL is a new cache entry everywhere. The modules app.js
+    imports by relative path get theirs through an import map.
+    """
+    for rel in ("css/app.css", "js/app.js"):
+        html = html.replace(f'"/static/{rel}"', f'"/static/{rel}?v={_asset_version(WEB_DIR / rel)}"', 1)
+    imports = {f"/static/js/{module.name}": f"/static/js/{module.name}?v={_asset_version(module)}"
+               for module in sorted((WEB_DIR / "js").glob("*.js"))}
+    importmap = f'<script type="importmap">{json.dumps({"imports": imports})}</script>\n'
+    # An import map has to come before the first module script.
+    return html.replace('<script type="module"', importmap + '<script type="module"', 1)
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index() -> HTMLResponse:
-    return HTMLResponse((WEB_DIR / "index.html").read_text())
+    return HTMLResponse(versioned_page((WEB_DIR / "index.html").read_text()))
 
 
 class AppStatic(StaticFiles):
@@ -1227,7 +1250,9 @@ class AppStatic(StaticFiles):
 
     def file_response(self, *args, **kwargs):
         response = super().file_response(*args, **kwargs)
-        response.headers.setdefault("Cache-Control", "no-cache")
+        # private: a shared cache (a CDN in front of the tunnel) must not
+        # keep a copy at all; the browser still revalidates with the ETag.
+        response.headers.setdefault("Cache-Control", "private, no-cache")
         return response
 
 
