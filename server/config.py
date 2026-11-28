@@ -241,6 +241,9 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     # browser, so it shows once per install rather than once per browser or
     # address (a tunnel URL that changes would otherwise bring it back).
     "tour_seen": False,
+    # Phones: type into a real text box and send the line on Enter, instead
+    # of key by key through xterm (Settings › General).
+    "compose_box": True,
     # Injection behaviour
     "clear_line_before_inject": True,
     "block_inject_when_busy": True,

@@ -15,6 +15,8 @@ const dom = {
   topbarScripts: document.getElementById("topbar-scripts"),
   tabbar: document.getElementById("tabbar"),
   keybar: document.getElementById("keybar"),
+  composer: document.getElementById("composer"),
+  composerInput: document.getElementById("composer-input"),
   crumbs: document.getElementById("crumbs"),
   entries: document.getElementById("entries"),
   panel: document.getElementById("panel"),
@@ -156,6 +158,7 @@ function createTab({ id = null, sessionId = null, title = null, activate = false
   // exactly as much as the ones restored at boot; skipping it is how a tab
   // ends up as a pill and an empty pane with no shell behind it.
   tab.terminal.inputFilter = applyStickyCtrl;
+  tab.terminal.focusElsewhere = focusComposer;
   enableTouchScroll(tab.host);
   tab.ready = tab.terminal.start().catch((error) => {
     toast(`Could not start “${tab.title}”: ${error.message}`, "error");
@@ -757,6 +760,11 @@ function followViewport() {
     const was = document.body.classList.contains("kb-open");
     document.body.classList.toggle("kb-open", keyboard);
     if (keyboard && !was) toggleChrome(false);
+    // Keyboard put away (Android's back key leaves the focus where it was):
+    // let go of the compose box so it folds away with it.
+    if (!keyboard && was && dom.composerInput && document.activeElement === dom.composerInput) {
+      dom.composerInput.blur();
+    }
     window.scrollTo(0, 0);
   };
   viewport.addEventListener("resize", update);
@@ -875,6 +883,106 @@ function buildKeybar() {
     button.addEventListener("click", (event) => event.preventDefault());
     return button;
   }));
+  applyComposeBox();
+}
+
+// ------------------------------------------------------------ compose box
+//
+// Phone keyboards rewrite the word they are composing (autocorrect, the
+// automatic capital, dictation). xterm reads them through a hidden textarea
+// and sometimes gets the rewrite wrong: whole stretches sent twice, or a
+// letter lost. With the compose box the keyboard writes into a real text
+// box instead, and only the finished line reaches the terminal, on Enter.
+// The key bar still sends Esc, ^C, arrows and the rest at once. Touch
+// screens only; Settings › General turns it off for vim or a password
+// prompt, which want every key as it is typed.
+
+let composerValue = "";
+
+/** The Settings switch (on unless turned off). */
+function composeBoxEnabled() {
+  return state.settings.compose_box !== false;
+}
+
+function composeBoxActive() {
+  return isTouch && composeBoxEnabled() && !!dom.composer;
+}
+
+/** Give the compose box the keyboard instead of xterm. True when it did. */
+function focusComposer() {
+  if (!composeBoxActive()) return false;
+  dom.composerInput.focus({ preventScroll: true });
+  return true;
+}
+
+function applyComposeBox() {
+  document.body.classList.toggle("line-mode", composeBoxActive());
+}
+
+function fitComposer() {
+  const box = dom.composerInput;
+  box.style.height = "auto";
+  // Grows with the text, up to about half of what the keyboard leaves, so a
+  // long message stays readable while it is written.
+  const room = (window.visualViewport ? window.visualViewport.height : window.innerHeight) * 0.45;
+  box.style.height = `${Math.min(box.scrollHeight + 2, Math.max(96, room))}px`;
+}
+
+function submitComposer() {
+  if (!terminal) return;
+  const text = dom.composerInput.value;
+  if (!terminal.submitLine(text)) {
+    toast("Not connected. Your line stays in the box: send it again once the shell is back.", "warning", 2600);
+    return;
+  }
+  dom.composerInput.value = composerValue = "";
+  fitComposer();
+}
+
+function wireComposer() {
+  if (!isTouch || !dom.composer) return;
+  const box = dom.composerInput;
+
+  dom.composer.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitComposer();
+  });
+
+  box.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      submitComposer();
+    }
+  });
+  // Some phone keyboards send no usable keydown for Enter while composing;
+  // the line break still shows up here.
+  box.addEventListener("beforeinput", (event) => {
+    if (event.inputType === "insertLineBreak" || event.inputType === "insertParagraph") {
+      event.preventDefault();
+      submitComposer();
+    }
+  });
+
+  // Folded away until it has the keyboard: tapping the terminal hands it
+  // the focus (focusComposer), and it opens between the key bar and the
+  // keyboard. At rest the screen looks exactly as without it.
+  box.addEventListener("focus", () => document.body.classList.add("composing"));
+  box.addEventListener("blur", () => document.body.classList.remove("composing"));
+
+  box.addEventListener("input", () => {
+    // Ctrl or Alt armed on the key bar: the one character just typed is a
+    // key for the terminal (Ctrl+R, Alt+B...), not text for the box.
+    const value = box.value;
+    if ((armed.ctrl || armed.alt) && terminal && value.length === composerValue.length + 1) {
+      let at = 0;
+      while (at < composerValue.length && value[at] === composerValue[at]) at += 1;
+      box.value = composerValue;
+      terminal.sendInput(applyStickyCtrl(value[at]));
+    } else {
+      composerValue = value;
+    }
+    fitComposer();
+  });
 }
 
 // ----------------------------------------------------------- running shells
@@ -1627,6 +1735,10 @@ const appContext = {
   state,
   inject,
   get terminal() { return terminal; },
+  setComposeBox: (on) => {
+    state.settings.compose_box = on;
+    applyComposeBox();
+  },
   setFontSize: (size) => {
     // Settings sets the size for every device; drop this device's own choice.
     try { localStorage.removeItem(FONT_KEY); } catch { /* private mode */ }
@@ -1691,6 +1803,7 @@ async function main() {
   wireChrome();
   wireContextMenus();
   buildKeybar();
+  wireComposer();
   followViewport();
   wireDragAndDrop();
   if (!document.fullscreenEnabled) document.body.classList.add("no-fullscreen");

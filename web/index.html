@@ -76,6 +76,15 @@
 <main class="terminal-wrap" id="terminal-wrap"></main>
 <!-- Keys a phone keyboard lacks. Shown on touch screens only; built by app.js. -->
 <div class="keybar" id="keybar" role="toolbar" aria-label="Terminal keys"></div>
+<!-- Compose box (touch screens, line mode): the phone keyboard writes here,
+     with its autocorrect and dictation, and Enter sends the finished line.
+     xterm's own hidden textarea mishandles phone keyboards (duplicated or
+     dropped text when a word is corrected). Last in the page, so it sits right
+     on top of the phone keyboard; the keyboard's own Enter sends. Wired by app.js. -->
+<form class="composer" id="composer" autocomplete="off">
+  <textarea id="composer-input" rows="1" enterkeyhint="send" autocapitalize="off"
+            placeholder="Type here…" aria-label="Line to send"></textarea>
+</form>
 
 <!-- Overlays -->
 <div class="menu" id="menu" hidden></div>

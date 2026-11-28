@@ -111,6 +111,15 @@ export class TerminalSurface {
     });
     this.term.onResize(({ rows, cols }) => this.send({ type: "resize", rows, cols }));
 
+    // On a phone in line mode the compose box takes the keyboard: a tap on
+    // the terminal lands in xterm's hidden textarea, and focusElsewhere
+    // moves it to the box (see app.js, the compose box).
+    this.host.addEventListener("focusin", (event) => {
+      if (this.focusElsewhere && event.target.classList.contains("xterm-helper-textarea")) {
+        this.focusElsewhere();
+      }
+    });
+
     const observer = new ResizeObserver(() => {
       try { this.fit.fit(); } catch { /* element not laid out yet */ }
     });
@@ -196,7 +205,35 @@ export class TerminalSurface {
   }
 
   focus() {
+    if (this.focusElsewhere && this.focusElsewhere()) return;
     if (this.term) this.term.focus();
+  }
+
+  connected() {
+    return !!this.socket && this.socket.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * A whole line from the phone's compose box, then Enter. Returns false,
+   * sending nothing, while the socket is down, so the box can keep the line.
+   */
+  submitLine(text) {
+    if (!this.connected()) return false;
+    if (text) {
+      let body = text.replace(/\r\n?/g, "\n");
+      if (body.includes("\n")) {
+        // Several lines: one paste when the program asked for bracketed
+        // paste (the shell, Claude Code, vim), otherwise typed line by line.
+        const bracketed = this.term && this.term.modes && this.term.modes.bracketedPasteMode;
+        body = bracketed ? `\x1b[200~${body}\x1b[201~` : body.replace(/\n/g, "\r");
+      }
+      this.sendInput(body);
+    }
+    // Enter as its own write, a moment later: a program that tells typing
+    // from pasting by timing (Claude Code) would otherwise read the Enter
+    // as a newline inside the text instead of "send".
+    setTimeout(() => this.sendInput("\r"), text ? 40 : 0);
+    return true;
   }
 
   clear() {

@@ -44,7 +44,7 @@ body {
      items from sizing to their intrinsic content width. Without both, the top
      bar's chips widen the whole document and every panel overflows the phone. */
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto;
   overflow: hidden;
 }
 
@@ -56,6 +56,7 @@ body {
 #panel { grid-row: 4; }
 #terminal-wrap { grid-row: 5; }
 #keybar { grid-row: 6; }
+#composer { grid-row: 7; }
 
 /* Follows the visual viewport (set by app.js), so the on-screen keyboard
    pushes the key bar up instead of covering it. */
@@ -851,6 +852,53 @@ button.row:hover { background: var(--raised); }
 .upload-count { color: var(--ink-dim); font-size: 12px; }
 
 /* ----------------------------------------------------------------- phones */
+
+/* Compose box: touch screens with Settings › General › "Compose box on
+   phones" on. Under the key bar, right on top of the keyboard, styled as
+   one more terminal line: a prompt mark, no field border. Folded to nothing
+   until it has the focus (body.composing), so at rest the screen is as it
+   was; the textarea stays focusable while folded. */
+.composer { display: none; }
+body.is-touch.line-mode .composer {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 2px var(--edge) env(safe-area-inset-bottom);
+  background: var(--panel);
+  border-top: 1px solid var(--rule);
+}
+body.is-touch.line-mode:not(.composing) .composer {
+  height: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+}
+body.is-touch.line-mode .composer:focus-within { border-top-color: var(--amber); }
+.composer::before {
+  content: "\203a";
+  flex: 0 0 auto;
+  color: var(--amber);
+  font-size: 18px;
+  line-height: 36px;
+}
+.composer textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 36px;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  /* 16px or more: below that iOS zooms the page when the box takes focus. */
+  font-size: 16px;
+  line-height: 20px;
+  resize: none;
+  overflow-y: auto;
+}
+.composer textarea::placeholder { color: var(--ink-dim); opacity: .7; }
+.composer textarea:focus { outline: none; }
+/* The box now holds the bottom edge, safe area included. */
+body.is-touch.line-mode.composing .keybar { padding-bottom: 5px; }
 
 /* Keys a phone keyboard lacks. Only on touch screens. */
 .keybar { display: none; }
